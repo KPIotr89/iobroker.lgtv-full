@@ -1,0 +1,31 @@
+{
+  "type": "panel",
+  "items": {
+    "host": {
+      "type": "text",
+      "label": "Adres IP telewizora",
+      "help": "np. 192.168.1.105 — ustaw stały IP w routerze (DHCP reservation)",
+      "validator": "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
+      "validatorErrorText": "Wpisz poprawny adres IPv4",
+      "sm": 12,
+      "md": 6
+    },
+    "macAddress": {
+      "type": "text",
+      "label": "Adres MAC (do Wake-on-LAN)",
+      "help": "Wymagany do włączania TV przez sieć. Znajdziesz go w Ustawienia → Sieć → Połączenie przewodowe/Wi-Fi → Zaawansowane. Format: AA:BB:CC:DD:EE:FF",
+      "sm": 12,
+      "md": 6
+    },
+    "reconnectInterval": {
+      "type": "number",
+      "label": "Interwał ponownego łączenia (sekundy)",
+      "help": "Czas oczekiwania po utracie połączenia przed kolejną próbą",
+      "min": 5,
+      "max": 300,
+      "default": 10,
+      "sm": 12,
+      "md": 4
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "common": {
+    "name": "lgtv-full",
+    "version": "1.0.0",
+    "news": {
+      "1.0.0": {
+        "en": "Initial release — full LG WebOS TV support",
+        "pl": "Pierwsza wersja — pełna obsługa LG WebOS TV"
+      }
+    },
+    "title": "LG WebOS TV (Full)",
+    "titleLang": {
+      "en": "LG WebOS TV (Full)",
+      "pl": "LG WebOS TV (Pełny)"
+    },
+    "desc": {
+      "en": "Full-featured LG WebOS TV adapter: Picture Mode, Sound Mode, inputs, channels, remote control, WoL",
+      "pl": "Rozbudowany adapter LG WebOS TV: tryby obrazu, dźwięku, wejścia, kanały, pilot, WoL"
+    },
+    "authors": ["Custom Adapter"],
+    "keywords": ["lg", "webos", "tv", "oled", "smart tv", "lgtv"],
+    "platform": "Javascript/Node.js",
+    "main": "main.js",
+    "enabled": true,
+    "mode": "daemon",
+    "type": "media",
+    "compact": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      { "js-controller": ">=3.0.0" }
+    ],
+    "nodeVersion": ">=14"
+  },
+  "native": {
+    "host": "",
+    "macAddress": "",
+    "reconnectInterval": 10
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": { "name": "Information" },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Connected",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    }
+  ]
+}
