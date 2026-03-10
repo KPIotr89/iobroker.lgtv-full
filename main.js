@@ -210,6 +210,22 @@ const SOUND_OUTPUTS = {
     'tv_external_speaker': 'TV + External Speaker',
 };
 
+// ─── Numeric mappings (for MQTT / Loxone) ────────────────────────────────────
+// Number → key (index starts at 1)
+const PICTURE_MODE_KEYS  = Object.keys(PICTURE_MODES);   // index+1 = number
+const SOUND_MODE_KEYS    = Object.keys(SOUND_MODES);
+const SOUND_OUTPUT_KEYS  = Object.keys(SOUND_OUTPUTS);
+
+// key → number
+const PICTURE_MODE_NUM   = Object.fromEntries(PICTURE_MODE_KEYS.map((k, i) => [k, i + 1]));
+const SOUND_MODE_NUM     = Object.fromEntries(SOUND_MODE_KEYS.map((k, i)   => [k, i + 1]));
+const SOUND_OUTPUT_NUM   = Object.fromEntries(SOUND_OUTPUT_KEYS.map((k, i) => [k, i + 1]));
+
+// Numeric states dictionary (number → "N — Label" for ioBroker dropdown)
+const PICTURE_MODES_NUM  = Object.fromEntries(PICTURE_MODE_KEYS.map((k, i)  => [i + 1, `${i + 1} — ${PICTURE_MODES[k]}`]));
+const SOUND_MODES_NUM    = Object.fromEntries(SOUND_MODE_KEYS.map((k, i)    => [i + 1, `${i + 1} — ${SOUND_MODES[k]}`]));
+const SOUND_OUTPUTS_NUM  = Object.fromEntries(SOUND_OUTPUT_KEYS.map((k, i)  => [i + 1, `${i + 1} — ${SOUND_OUTPUTS[k]}`]));
+
 const REMOTE_BUTTONS = [
     'LEFT', 'RIGHT', 'UP', 'DOWN', 'OK',
     'HOME', 'BACK', 'MENU', 'EXIT', 'INFO', 'GUIDE', 'MYAPPS',
@@ -268,11 +284,14 @@ class LgtvFullAdapter extends utils.Adapter {
         await ch('audio', 'Audio');
         await st('audio.volume', 'Volume', 'number', 'level.volume', true, { min: 0, max: 100, unit: '%' });
         await st('audio.mute',   'Mute',   'boolean', 'media.mute',  true);
-        await this.setObjectAsync('audio.soundMode',   { type: 'state', common: { name: 'Sound Mode',   type: 'string', role: 'text', read: true, write: true, states: SOUND_MODES   }, native: {} });
-        await this.setObjectAsync('audio.soundOutput', { type: 'state', common: { name: 'Sound Output', type: 'string', role: 'text', read: true, write: true, states: SOUND_OUTPUTS }, native: {} });
+        await this.setObjectAsync('audio.soundMode',      { type: 'state', common: { name: 'Sound Mode',           type: 'string', role: 'text',  read: true, write: true, states: SOUND_MODES       }, native: {} });
+        await this.setObjectAsync('audio.soundModeNum',   { type: 'state', common: { name: 'Sound Mode (number)',   type: 'number', role: 'value', read: true, write: true, states: SOUND_MODES_NUM   }, native: {} });
+        await this.setObjectAsync('audio.soundOutput',    { type: 'state', common: { name: 'Sound Output',          type: 'string', role: 'text',  read: true, write: true, states: SOUND_OUTPUTS     }, native: {} });
+        await this.setObjectAsync('audio.soundOutputNum', { type: 'state', common: { name: 'Sound Output (number)', type: 'number', role: 'value', read: true, write: true, states: SOUND_OUTPUTS_NUM }, native: {} });
 
         await ch('picture', 'Picture');
-        await this.setObjectAsync('picture.mode', { type: 'state', common: { name: 'Picture Mode', type: 'string', role: 'text', read: true, write: true, states: PICTURE_MODES }, native: {} });
+        await this.setObjectAsync('picture.mode',    { type: 'state', common: { name: 'Picture Mode',         type: 'string', role: 'text',  read: true, write: true, states: PICTURE_MODES     }, native: {} });
+        await this.setObjectAsync('picture.modeNum', { type: 'state', common: { name: 'Picture Mode (number)', type: 'number', role: 'value', read: true, write: true, states: PICTURE_MODES_NUM }, native: {} });
         await st('picture.brightness', 'Brightness',       'number', 'level', true, { min: 0, max: 100 });
         await st('picture.contrast',   'Contrast',         'number', 'level', true, { min: 0, max: 100 });
         await st('picture.backlight',  'Backlight / OLED', 'number', 'level', true, { min: 0, max: 100 });
@@ -405,7 +424,11 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.tv.subscribe('ssap://audio/getSoundOutput', (err, res) => {
             if (err || !res) return;
-            if (res.soundOutput) this.setStateAsync('audio.soundOutput', res.soundOutput, true);
+            if (res.soundOutput) {
+                this.setStateAsync('audio.soundOutput', res.soundOutput, true);
+                const n = SOUND_OUTPUT_NUM[res.soundOutput];
+                if (n !== undefined) this.setStateAsync('audio.soundOutputNum', n, true);
+            }
         });
 
         this.tv.subscribe('ssap://com.webos.service.screenSaver/getStatus', (err, res) => {
@@ -420,12 +443,16 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (err || !res || !res.settings) return;
                 const s = res.settings;
                 this.log.debug(`Picture push: ${JSON.stringify(s)}`);
-                if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,          true);
-                if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
-                if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
-                if (s.backlight   !== undefined) this.setStateAsync('picture.backlight',  parseInt(s.backlight),  true);
-                if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
-                if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
+                if (s.pictureMode !== undefined) {
+                    this.setStateAsync('picture.mode', s.pictureMode, true);
+                    const n = PICTURE_MODE_NUM[s.pictureMode];
+                    if (n !== undefined) this.setStateAsync('picture.modeNum', n, true);
+                }
+                if (s.brightness !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
+                if (s.contrast   !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
+                if (s.backlight  !== undefined) this.setStateAsync('picture.backlight',  parseInt(s.backlight),  true);
+                if (s.color      !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
+                if (s.sharpness  !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
             }
         );
 
@@ -435,8 +462,11 @@ class LgtvFullAdapter extends utils.Adapter {
             (err, res) => {
                 if (err || !res || !res.settings) return;
                 if (res.settings.soundMode) {
-                    this.log.debug(`Sound mode push: ${res.settings.soundMode}`);
-                    this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                    const mode = res.settings.soundMode;
+                    this.log.debug(`Sound mode push: ${mode}`);
+                    this.setStateAsync('audio.soundMode', mode, true);
+                    const n = SOUND_MODE_NUM[mode];
+                    if (n !== undefined) this.setStateAsync('audio.soundModeNum', n, true);
                 }
             }
         );
@@ -446,14 +476,18 @@ class LgtvFullAdapter extends utils.Adapter {
         const applySettings = (s) => {
             if (!s) return;
             this.log.debug(`Picture settings received: ${JSON.stringify(s)}`);
-            if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,          true);
-            if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
-            if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
+            if (s.pictureMode !== undefined) {
+                this.setStateAsync('picture.mode', s.pictureMode, true);
+                const n = PICTURE_MODE_NUM[s.pictureMode];
+                if (n !== undefined) this.setStateAsync('picture.modeNum', n, true);
+            }
+            if (s.brightness !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
+            if (s.contrast   !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
             // oledLight is not allowed as a filter key on LG G4 — use backlight
             const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
-            if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),           true);
-            if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
-            if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
+            if (bl !== undefined)            this.setStateAsync('picture.backlight',  parseInt(bl),           true);
+            if (s.color      !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
+            if (s.sharpness  !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
         };
 
         const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
@@ -472,8 +506,12 @@ class LgtvFullAdapter extends utils.Adapter {
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
                 if (err) { this.log.debug(`getSystemSettings sound error: ${err.message}`); return; }
-                if (res && res.settings && res.settings.soundMode)
-                    this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                if (res && res.settings && res.settings.soundMode) {
+                    const mode = res.settings.soundMode;
+                    this.setStateAsync('audio.soundMode', mode, true);
+                    const n = SOUND_MODE_NUM[mode];
+                    if (n !== undefined) this.setStateAsync('audio.soundModeNum', n, true);
+                }
             }
         );
     }
@@ -548,15 +586,36 @@ class LgtvFullAdapter extends utils.Adapter {
                     (err) => { if (err) this.log.warn(`setSystemSettings sound error: ${err.message}`); }
                 );
                 break;
+            case 'audio.soundModeNum': {
+                const modeKey = SOUND_MODE_KEYS[val - 1];
+                if (modeKey) this.tv.request('ssap://settings/setSystemSettings',
+                    { settings: { soundMode: modeKey }, category: 'sound' },
+                    (err) => { if (err) this.log.warn(`setSystemSettings soundModeNum error: ${err.message}`); }
+                );
+                break;
+            }
             case 'audio.soundOutput':
                 this.tv.request('ssap://audio/changeSoundOutput', { output: val });
                 break;
+            case 'audio.soundOutputNum': {
+                const outputKey = SOUND_OUTPUT_KEYS[val - 1];
+                if (outputKey) this.tv.request('ssap://audio/changeSoundOutput', { output: outputKey });
+                break;
+            }
             case 'picture.mode':
                 this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { pictureMode: val }, category: 'picture' },
                     (err) => { if (err) this.log.warn(`setSystemSettings picture mode error: ${err.message}`); }
                 );
                 break;
+            case 'picture.modeNum': {
+                const picKey = PICTURE_MODE_KEYS[val - 1];
+                if (picKey) this.tv.request('ssap://settings/setSystemSettings',
+                    { settings: { pictureMode: picKey }, category: 'picture' },
+                    (err) => { if (err) this.log.warn(`setSystemSettings pictureModeNum error: ${err.message}`); }
+                );
+                break;
+            }
             case 'picture.brightness':
             case 'picture.contrast':
             case 'picture.backlight':

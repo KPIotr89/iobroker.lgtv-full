@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "news": {
+      "1.1.1": {
+        "en": "Add numeric states for picture mode, sound mode and sound output (for MQTT/Loxone)",
+        "pl": "Dodano stany numeryczne dla trybu obrazu, dźwięku i wyjścia audio (dla MQTT/Loxone)"
+      },
       "1.1.0": {
         "en": "Force update all object names to English (setObjectAsync replaces setObjectNotExistsAsync)",
         "pl": "Wymuszenie aktualizacji nazw obiektów na angielskie"
