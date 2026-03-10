@@ -8,6 +8,9 @@
  * Zależności: lgtv2, wake_on_lan, @iobroker/adapter-core
  */
 
+// LG webOS 6+ (2021, w tym G4) używa WSS z certyfikatem self-signed
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const utils      = require('@iobroker/adapter-core');
 const lgtv2      = require('lgtv2');
 const wol        = require('wake_on_lan');
@@ -194,10 +197,16 @@ class LgtvFullAdapter extends utils.Adapter {
         }
 
         const keyFile = path.join(utils.getAbsoluteInstanceDataDir(this), 'lgtvkey.txt');
-        this.log.info(`Łączenie z TV: ${this.config.host}:3000`);
+
+        // webOS 6+ (2021+, w tym G4/G3/C-series) → WSS port 3001
+        // Starsze webOS → WS port 3000
+        const useSSL = this.config.useSSL !== false; // domyślnie true
+        const port   = useSSL ? 3001 : 3000;
+        const proto  = useSSL ? 'wss' : 'ws';
+        this.log.info(`Łączenie z TV: ${proto}://${this.config.host}:${port}`);
 
         this.tv = lgtv2({
-            url:       `ws://${this.config.host}:3000`,
+            url:       `${proto}://${this.config.host}:${port}`,
             timeout:   5000,
             reconnect: 0,       // zarządzamy reconnect ręcznie
             keyFile:   keyFile,

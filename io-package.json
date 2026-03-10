@@ -38,7 +38,8 @@
   "native": {
     "host": "",
     "macAddress": "",
-    "reconnectInterval": 10
+    "reconnectInterval": 10,
+    "useSSL": true
   },
   "objects": [],
   "instanceObjects": [
