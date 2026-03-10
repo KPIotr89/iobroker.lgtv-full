@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "news": {
+      "1.1.3": {
+        "en": "Fix: add CONTROL_DISPLAY to signed manifest permissions (required for setSystemSettings write)",
+        "pl": "Poprawka: CONTROL_DISPLAY w manifeście — wymagane do zapisu ustawień obrazu"
+      },
       "1.1.2": {
         "en": "Fix: acknowledge all state changes (no more red values), sync string/number pairs on write",
         "pl": "Poprawka: potwierdzenie wszystkich zmian stanów (koniec z czerwonymi wartościami), synchronizacja par string/number"
