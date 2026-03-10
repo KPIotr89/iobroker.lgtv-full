@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.3",
+    "version": "1.1.4",
     "news": {
+      "1.1.4": {
+        "en": "Fix: add WRITE_SETTINGS to unsigned permissions (required for setSystemSettings write to work); fallback oledLight key for OLED backlight",
+        "pl": "Poprawka: WRITE_SETTINGS w uprawnieniach — kluczowe dla zapisu ustawień obrazu; fallback oledLight dla OLED"
+      },
       "1.1.3": {
         "en": "Fix: add CONTROL_DISPLAY to signed manifest permissions (required for setSystemSettings write)",
         "pl": "Poprawka: CONTROL_DISPLAY w manifeście — wymagane do zapisu ustawień obrazu"

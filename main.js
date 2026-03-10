@@ -42,7 +42,7 @@ const LG_MANIFEST = {
         'CONTROL_INPUT_TV', 'CONTROL_POWER', 'READ_APP_STATUS',
         'READ_CURRENT_CHANNEL', 'READ_INPUT_DEVICE_LIST', 'READ_NETWORK_STATE',
         'READ_RUNNING_APPS', 'READ_TV_CHANNEL_LIST', 'WRITE_NOTIFICATION_TOAST',
-        'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS',
+        'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS', 'WRITE_SETTINGS',
     ],
     signatures: [{ signatureVersion: 1, signature: 'eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2In0=' }],
 };
@@ -648,12 +648,28 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.backlight':
             case 'picture.color':
             case 'picture.sharpness': {
-                const k = key.split('.')[1];
+                let k = key.split('.')[1];
                 const rounded = Math.round(val);
-                this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { [k]: String(rounded) }, category: 'picture' },
-                    (err) => { if (err) this.log.warn(`setSystemSettings ${k} error: ${err.message}`); }
-                );
+                // LG OLED TVs use 'oledLight' key for backlight, try both
+                if (k === 'backlight') {
+                    this.tv.request('ssap://settings/setSystemSettings',
+                        { category: 'picture', settings: { backlight: String(rounded) } },
+                        (err) => {
+                            if (err) {
+                                this.log.debug(`backlight write failed, trying oledLight: ${err.message}`);
+                                this.tv.request('ssap://settings/setSystemSettings',
+                                    { category: 'picture', settings: { oledLight: String(rounded) } },
+                                    (err2) => { if (err2) this.log.warn(`oledLight write error: ${err2.message}`); }
+                                );
+                            }
+                        }
+                    );
+                } else {
+                    this.tv.request('ssap://settings/setSystemSettings',
+                        { category: 'picture', settings: { [k]: String(rounded) } },
+                        (err) => { if (err) this.log.warn(`setSystemSettings ${k} error: ${err.message}`); }
+                    );
+                }
                 this.setStateAsync(id, rounded, true);
                 break;
             }
