@@ -109,7 +109,12 @@ class LgTvSocket {
             if (msg.type === 'registered') {
                 if (msg.payload && msg.payload['client-key']) {
                     this.clientKey = msg.payload['client-key'];
-                    try { fs.writeFileSync(this.keyFile, this.clientKey, 'utf8'); } catch (e) {}
+                    try {
+                        // Ensure directory exists before writing
+                        const dir = path.dirname(this.keyFile);
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        fs.writeFileSync(this.keyFile, this.clientKey, 'utf8');
+                    } catch (e) { /* ignore write errors */ }
                 }
                 this._onConnect();
 

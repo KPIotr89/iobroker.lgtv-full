@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "news": {
+      "1.0.9": {
+        "en": "Translate admin UI to English, fix pairing key persistence (create directory if missing)",
+        "pl": "Tłumaczenie UI na angielski, naprawa zapisu klucza parowania"
+      },
       "1.0.8": {
         "en": "Push subscriptions for all picture settings (backlight, brightness, contrast, color, sharpness)",
         "pl": "Subskrypcje push dla wszystkich ustawień obrazu (podświetlenie, jasność, kontrast, kolor, ostrość)"
