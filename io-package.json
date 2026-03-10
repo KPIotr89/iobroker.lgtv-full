@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "news": {
+      "1.1.0": {
+        "en": "Force update all object names to English (setObjectAsync replaces setObjectNotExistsAsync)",
+        "pl": "Wymuszenie aktualizacji nazw obiektów na angielskie"
+      },
       "1.0.9": {
         "en": "Translate admin UI to English, fix pairing key persistence (create directory if missing)",
         "pl": "Tłumaczenie UI na angielski, naprawa zapisu klucza parowania"

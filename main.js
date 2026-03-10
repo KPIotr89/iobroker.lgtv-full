@@ -249,43 +249,44 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     async createAllObjects() {
-        const ch  = (id, name) => this.setObjectNotExistsAsync(id, { type: 'channel', common: { name }, native: {} });
+        // Use setObjectAsync (not setObjectNotExistsAsync) to force update names on existing objects
+        const ch  = (id, name) => this.setObjectAsync(id, { type: 'channel', common: { name }, native: {} });
         const st  = (id, name, type, role, write, extra = {}) =>
-            this.setObjectNotExistsAsync(id, { type: 'state', common: { name, type, role, read: true, write, ...extra }, native: {} });
+            this.setObjectAsync(id, { type: 'state', common: { name, type, role, read: true, write, ...extra }, native: {} });
 
         await ch('info', 'Information');
-        await this.setObjectNotExistsAsync('info.connection', {
+        await this.setObjectAsync('info.connection', {
             type: 'state',
             common: { name: 'Connected', type: 'boolean', role: 'indicator.connected', read: true, write: false, def: false },
             native: {},
         });
 
-        await st('power',       'Power (WoL)',        'boolean', 'switch.power', true);
-        await st('screenOff',   'Screen off',         'boolean', 'switch',       true);
-        await st('screenSaver', 'Screen saver active','boolean', 'indicator',    false);
+        await st('power',       'Power (WoL)',         'boolean', 'switch.power', true);
+        await st('screenOff',   'Screen off',          'boolean', 'switch',       true);
+        await st('screenSaver', 'Screen saver active', 'boolean', 'indicator',    false);
 
         await ch('audio', 'Audio');
         await st('audio.volume', 'Volume', 'number', 'level.volume', true, { min: 0, max: 100, unit: '%' });
         await st('audio.mute',   'Mute',   'boolean', 'media.mute',  true);
-        await this.setObjectNotExistsAsync('audio.soundMode',   { type: 'state', common: { name: 'Sound Mode',   type: 'string', role: 'text', read: true, write: true, states: SOUND_MODES   }, native: {} });
-        await this.setObjectNotExistsAsync('audio.soundOutput', { type: 'state', common: { name: 'Sound Output', type: 'string', role: 'text', read: true, write: true, states: SOUND_OUTPUTS }, native: {} });
+        await this.setObjectAsync('audio.soundMode',   { type: 'state', common: { name: 'Sound Mode',   type: 'string', role: 'text', read: true, write: true, states: SOUND_MODES   }, native: {} });
+        await this.setObjectAsync('audio.soundOutput', { type: 'state', common: { name: 'Sound Output', type: 'string', role: 'text', read: true, write: true, states: SOUND_OUTPUTS }, native: {} });
 
         await ch('picture', 'Picture');
-        await this.setObjectNotExistsAsync('picture.mode', { type: 'state', common: { name: 'Picture Mode', type: 'string', role: 'text', read: true, write: true, states: PICTURE_MODES }, native: {} });
-        await st('picture.brightness', 'Brightness',        'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.contrast',   'Contrast',          'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.backlight',  'Backlight / OLED',  'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.color',      'Color Saturation',  'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.sharpness',  'Sharpness',         'number', 'level', true, { min: 0, max: 50  });
+        await this.setObjectAsync('picture.mode', { type: 'state', common: { name: 'Picture Mode', type: 'string', role: 'text', read: true, write: true, states: PICTURE_MODES }, native: {} });
+        await st('picture.brightness', 'Brightness',       'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.contrast',   'Contrast',         'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.backlight',  'Backlight / OLED', 'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.color',      'Color Saturation', 'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.sharpness',  'Sharpness',        'number', 'level', true, { min: 0, max: 50  });
 
         await ch('input', 'Input');
-        await st('input.current', 'Current input',     'string', 'text', true);
-        await st('input.list',    'Input list (JSON)', 'string', 'json', false);
+        await st('input.current', 'Current input',      'string', 'text', true);
+        await st('input.list',    'Input list (JSON)',  'string', 'json', false);
 
         await ch('channel', 'TV Channel');
-        await st('channel.number', 'Channel number',    'string', 'text', true);
-        await st('channel.name',   'Channel name',      'string', 'text', false);
-        await st('channel.list',   'Channel list (JSON)', 'string', 'json', false);
+        await st('channel.number', 'Channel number',       'string', 'text', true);
+        await st('channel.name',   'Channel name',         'string', 'text', false);
+        await st('channel.list',   'Channel list (JSON)',  'string', 'json', false);
 
         await ch('app', 'Applications');
         await st('app.current', 'Current app (ID)', 'string', 'text', false);
@@ -296,7 +297,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
         await ch('remote', 'Remote Control');
         for (const btn of REMOTE_BUTTONS) {
-            await this.setObjectNotExistsAsync(`remote.${btn}`, {
+            await this.setObjectAsync(`remote.${btn}`, {
                 type: 'state',
                 common: { name: `Button ${btn}`, type: 'boolean', role: 'button', read: false, write: true },
                 native: {},
