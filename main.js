@@ -573,47 +573,73 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request(val
                     ? 'ssap://com.webos.service.tv.display/setScreenOff'
                     : 'ssap://com.webos.service.tv.display/setScreenOn');
+                this.setStateAsync(id, val, true);
                 break;
-            case 'audio.volume':
-                this.tv.request('ssap://audio/setVolume', { volume: Math.max(0, Math.min(100, Math.round(val))) });
+            case 'audio.volume': {
+                const v = Math.max(0, Math.min(100, Math.round(val)));
+                this.tv.request('ssap://audio/setVolume', { volume: v });
+                this.setStateAsync(id, v, true);
                 break;
+            }
             case 'audio.mute':
                 this.tv.request('ssap://audio/setMute', { mute: !!val });
+                this.setStateAsync(id, !!val, true);
                 break;
-            case 'audio.soundMode':
+            case 'audio.soundMode': {
                 this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { soundMode: val }, category: 'sound' },
                     (err) => { if (err) this.log.warn(`setSystemSettings sound error: ${err.message}`); }
                 );
+                this.setStateAsync(id, val, true);
+                const sn = SOUND_MODE_NUM[val];
+                if (sn !== undefined) this.setStateAsync('audio.soundModeNum', sn, true);
                 break;
+            }
             case 'audio.soundModeNum': {
                 const modeKey = SOUND_MODE_KEYS[val - 1];
-                if (modeKey) this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { soundMode: modeKey }, category: 'sound' },
-                    (err) => { if (err) this.log.warn(`setSystemSettings soundModeNum error: ${err.message}`); }
-                );
+                if (modeKey) {
+                    this.tv.request('ssap://settings/setSystemSettings',
+                        { settings: { soundMode: modeKey }, category: 'sound' },
+                        (err) => { if (err) this.log.warn(`setSystemSettings soundModeNum error: ${err.message}`); }
+                    );
+                    this.setStateAsync(id, val, true);
+                    this.setStateAsync('audio.soundMode', modeKey, true);
+                }
                 break;
             }
             case 'audio.soundOutput':
                 this.tv.request('ssap://audio/changeSoundOutput', { output: val });
+                this.setStateAsync(id, val, true);
                 break;
             case 'audio.soundOutputNum': {
                 const outputKey = SOUND_OUTPUT_KEYS[val - 1];
-                if (outputKey) this.tv.request('ssap://audio/changeSoundOutput', { output: outputKey });
+                if (outputKey) {
+                    this.tv.request('ssap://audio/changeSoundOutput', { output: outputKey });
+                    this.setStateAsync(id, val, true);
+                    this.setStateAsync('audio.soundOutput', outputKey, true);
+                }
                 break;
             }
-            case 'picture.mode':
+            case 'picture.mode': {
                 this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { pictureMode: val }, category: 'picture' },
                     (err) => { if (err) this.log.warn(`setSystemSettings picture mode error: ${err.message}`); }
                 );
+                this.setStateAsync(id, val, true);
+                const pn = PICTURE_MODE_NUM[val];
+                if (pn !== undefined) this.setStateAsync('picture.modeNum', pn, true);
                 break;
+            }
             case 'picture.modeNum': {
                 const picKey = PICTURE_MODE_KEYS[val - 1];
-                if (picKey) this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { pictureMode: picKey }, category: 'picture' },
-                    (err) => { if (err) this.log.warn(`setSystemSettings pictureModeNum error: ${err.message}`); }
-                );
+                if (picKey) {
+                    this.tv.request('ssap://settings/setSystemSettings',
+                        { settings: { pictureMode: picKey }, category: 'picture' },
+                        (err) => { if (err) this.log.warn(`setSystemSettings pictureModeNum error: ${err.message}`); }
+                    );
+                    this.setStateAsync(id, val, true);
+                    this.setStateAsync('picture.mode', picKey, true);
+                }
                 break;
             }
             case 'picture.brightness':
@@ -622,29 +648,43 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.color':
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
+                const rounded = Math.round(val);
                 this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { [k]: String(Math.round(val)) }, category: 'picture' },
+                    { settings: { [k]: String(rounded) }, category: 'picture' },
                     (err) => { if (err) this.log.warn(`setSystemSettings ${k} error: ${err.message}`); }
                 );
+                this.setStateAsync(id, rounded, true);
                 break;
             }
             case 'input.current':
                 this.tv.request('ssap://tv/switchInput', { inputId: val });
+                this.setStateAsync(id, val, true);
                 break;
             case 'channel.number': {
                 const ch = this.channels.find(c => c.channelNumber === String(val));
-                if (ch) this.tv.request('ssap://tv/openChannel', { channelId: ch.channelId });
-                else    this.log.warn(`Channel ${val} not found`);
+                if (ch) {
+                    this.tv.request('ssap://tv/openChannel', { channelId: ch.channelId });
+                    this.setStateAsync(id, val, true);
+                } else {
+                    this.log.warn(`Channel ${val} not found`);
+                }
                 break;
             }
             case 'app.launch':
                 this.tv.request('ssap://system.launcher/launch', { id: val });
+                this.setStateAsync(id, val, true);
                 break;
             default:
                 if (key.startsWith('remote.')) {
                     const btn = key.replace('remote.', '');
-                    if (this.inputSocket) this.inputSocket.send('button', { name: btn });
-                    else { this.log.warn(`Remote socket not ready (${btn})`); this.openInputSocket(); }
+                    if (this.inputSocket) {
+                        this.inputSocket.send('button', { name: btn });
+                        // Reset button back to false after press
+                        setTimeout(() => this.setStateAsync(id, false, true), 300);
+                    } else {
+                        this.log.warn(`Remote socket not ready (${btn})`);
+                        this.openInputSocket();
+                    }
                 }
         }
     }

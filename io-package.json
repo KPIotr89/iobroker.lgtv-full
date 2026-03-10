@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "news": {
+      "1.1.2": {
+        "en": "Fix: acknowledge all state changes (no more red values), sync string/number pairs on write",
+        "pl": "Poprawka: potwierdzenie wszystkich zmian stanów (koniec z czerwonymi wartościami), synchronizacja par string/number"
+      },
       "1.1.1": {
         "en": "Add numeric states for picture mode, sound mode and sound output (for MQTT/Loxone)",
         "pl": "Dodano stany numeryczne dla trybu obrazu, dźwięku i wyjścia audio (dla MQTT/Loxone)"
