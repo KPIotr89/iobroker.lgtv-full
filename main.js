@@ -407,15 +407,19 @@ class LgtvFullAdapter extends utils.Adapter {
             this.setStateAsync('screenSaver', res.actived === true || res.screenSaverRunning === true, true);
         });
 
-        // Subskrypcja zmian trybu obrazu (push z TV)
+        // Subskrypcja zmian ustawień obrazu (push z TV — wszystkie klucze)
         this.tv.subscribe('ssap://settings/getSystemSettings',
-            { category: 'picture', keys: ['pictureMode'] },
+            { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'] },
             (err, res) => {
                 if (err || !res || !res.settings) return;
-                if (res.settings.pictureMode) {
-                    this.log.debug(`Picture mode push: ${res.settings.pictureMode}`);
-                    this.setStateAsync('picture.mode', res.settings.pictureMode, true);
-                }
+                const s = res.settings;
+                this.log.debug(`Picture push: ${JSON.stringify(s)}`);
+                if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,          true);
+                if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
+                if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
+                if (s.backlight   !== undefined) this.setStateAsync('picture.backlight',  parseInt(s.backlight),  true);
+                if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
+                if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
             }
         );
 

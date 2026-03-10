@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "news": {
+      "1.0.8": {
+        "en": "Push subscriptions for all picture settings (backlight, brightness, contrast, color, sharpness)",
+        "pl": "Subskrypcje push dla wszystkich ustawień obrazu (podświetlenie, jasność, kontrast, kolor, ostrość)"
+      },
       "1.0.7": {
         "en": "Push subscriptions for picture/sound mode changes, polling fallback every 60s",
         "pl": "Subskrypcje push dla zmian trybu obrazu/dźwięku, polling co 60s jako zabezpieczenie"
