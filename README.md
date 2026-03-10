@@ -1,130 +1,132 @@
 # ioBroker Adapter: lgtv-full
 
-Pełny adapter do sterowania **LG WebOS TV** (OLED G-series i inne) w ioBroker.
-Zastępuje homebridge-lgwebos-tv — obsługuje Picture Mode, Sound Mode, wejścia HDMI, kanały, pilota i więcej.
+Full-featured **LG WebOS TV** control adapter for ioBroker (OLED G-series and others, webOS 6+).
+Replaces homebridge-lgwebos-tv — supports Picture Mode, Sound Mode, HDMI inputs, channels, remote control, Wake-on-LAN and more.
 
 ---
 
-## Wymagania
+## Requirements
 
-- ioBroker z js-controller ≥ 3.0
+- ioBroker with js-controller ≥ 3.0
 - Node.js ≥ 14
-- LG WebOS TV (2014+) podłączony do tej samej sieci LAN
-- Stały adres IP telewizora (ustaw DHCP reservation w routerze)
+- LG WebOS TV (2014+) on the same LAN
+- Static IP address for the TV (set DHCP reservation in your router)
 
 ---
 
-## Instalacja
+## Installation
 
-### Metoda 1 — przez terminal (zalecana)
+### Via ioBroker Admin (recommended)
 
-```bash
-# 1. Przejdź do katalogu adapterów ioBroker
-cd /opt/iobroker/node_modules
+1. Open **Admin → Adapters → Install from custom URL**
+2. Enter: `https://github.com/KPIotr89/iobroker.lgtv-full`
+3. Click **Install**
 
-# 2. Skopiuj folder adaptera (lub sklonuj z repozytorium)
-cp -r /ścieżka/do/iobroker.lgtv-full ./iobroker.lgtv-full
+### Auto-update
 
-# 3. Zainstaluj zależności
-cd iobroker.lgtv-full
-npm install --production
+Add the following URL to **Settings → Repositories** in ioBroker Admin:
 
-# 4. Wróć do katalogu ioBroker i zarejestruj adapter
-cd /opt/iobroker
-iobroker upload lgtv-full
-
-# 5. Dodaj instancję
-iobroker add lgtv-full
+```
+https://raw.githubusercontent.com/KPIotr89/iobroker.lgtv-full/main/repository.json
 ```
 
-### Metoda 2 — przez ioBroker Admin (GUI)
-
-1. Otwórz **Admin → Adaptery → Instalacja z własnego URL**
-2. Wpisz ścieżkę do folderu lub URL GitHub
-3. Kliknij „Instaluj"
+Enable **Auto-Upgrade** for this repository — ioBroker will automatically update the adapter when a new version is released.
 
 ---
 
-## Konfiguracja
+## Configuration
 
-Po zainstalowaniu otwórz instancję adaptera w Admin:
+After installing, open the adapter instance settings in Admin:
 
-| Pole | Opis |
-|------|------|
-| **Adres IP telewizora** | np. `192.168.1.105` — ustaw stały IP w routerze |
-| **Adres MAC** | Do funkcji Wake-on-LAN (włączanie TV z sieci). Znajdziesz w TV: Ustawienia → Połączenie → Sieć → Zaawansowane |
-| **Interwał ponownego łączenia** | Sekundy między próbami reconnect (domyślnie: 10) |
+| Field | Description |
+|-------|-------------|
+| **TV IP Address** | e.g. `192.168.1.105` — assign a static IP in your router |
+| **MAC Address** | Used for Wake-on-LAN. Find it in TV: Settings → Connection → Network → Advanced |
+| **Reconnect interval** | Seconds between reconnection attempts (default: 10) |
 
-### Pierwsze połączenie
+### First connection / Pairing
 
-Przy pierwszym uruchomieniu na ekranie TV pojawi się **prośba o parowanie** — zatwierdź ją na pilocie. Klucz jest zapisywany automatycznie (plik `lgtvkey.txt` w danych instancji), więc parowanie jest jednorazowe.
+On the first run, the TV will display a **pairing request** — accept it using the remote.
+The client key is saved automatically (`lgtvkey.txt` in the instance data folder) so pairing is only needed once.
 
 ---
 
-## Dostępne obiekty ioBroker
+## Available ioBroker states
 
-### Zasilanie / Ekran
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `power` | boolean R/W | Włącz (WoL) / Wyłącz TV |
-| `screenOff` | boolean R/W | Wygasz ekran bez wyłączania TV |
-| `screenSaver` | boolean R | Czy wygaszacz ekranu jest aktywny |
+### Power / Screen
+
+| State | Type | Description |
+|-------|------|-------------|
+| `power` | boolean R/W | Turn TV on (WoL) / off |
+| `screenOff` | boolean R/W | Turn off screen without powering off TV |
+| `screenSaver` | boolean R | Whether screen saver is active |
 
 ### Audio
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `audio.volume` | number 0–100 R/W | Głośność |
-| `audio.mute` | boolean R/W | Wyciszenie |
-| `audio.soundMode` | string R/W | Tryb dźwięku (Standard, Music, Cinema, Sport, Game, AI Sound...) |
-| `audio.soundOutput` | string R/W | Wyjście audio (TV Speaker, HDMI ARC, Optical, Bluetooth...) |
 
-### Obraz
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `picture.mode` | string R/W | Tryb obrazu (Vivid, Standard, Cinema, Game, Filmmaker, Dolby Vision...) |
-| `picture.brightness` | number R/W | Jasność |
-| `picture.contrast` | number R/W | Kontrast |
-| `picture.backlight` | number R/W | Podświetlenie / OLED Light |
-| `picture.color` | number R/W | Nasycenie kolorów |
-| `picture.sharpness` | number R/W | Ostrość |
+| State | Type | Description |
+|-------|------|-------------|
+| `audio.volume` | number 0–100 R/W | Volume level |
+| `audio.mute` | boolean R/W | Mute |
+| `audio.soundMode` | string R/W | Sound mode (Standard, Music, Cinema, Sport, Game, AI Sound…) |
+| `audio.soundOutput` | string R/W | Audio output (TV Speaker, HDMI ARC, Optical, Bluetooth…) |
 
-### Wejście / Źródło
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `input.current` | string R/W | Aktywne wejście (lista HDMI pojawia się po połączeniu) |
-| `input.list` | JSON R | Lista dostępnych wejść |
+### Picture
 
-### Kanały TV
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `channel.number` | string R/W | Numer kanału — wpisz numer aby przełączyć |
-| `channel.name` | string R | Nazwa bieżącego kanału |
-| `channel.list` | JSON R | Lista wszystkich kanałów |
+| State | Type | Description |
+|-------|------|-------------|
+| `picture.mode` | string R/W | Picture mode (Vivid, Standard, Cinema, Game, Filmmaker, Expert, Dolby Vision…) |
+| `picture.brightness` | number R/W | Brightness |
+| `picture.contrast` | number R/W | Contrast |
+| `picture.backlight` | number R/W | Backlight / OLED Light level |
+| `picture.color` | number R/W | Color saturation |
+| `picture.sharpness` | number R/W | Sharpness |
 
-### Aplikacje
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `app.current` | string R | ID bieżącej aplikacji (np. `netflix`, `youtube`) |
-| `app.launch` | string W | Uruchom aplikację przez jej ID |
+### Input / Source
+
+| State | Type | Description |
+|-------|------|-------------|
+| `input.current` | string R/W | Active input (HDMI list populated after connection) |
+| `input.list` | JSON R | List of available inputs |
+
+### TV Channels
+
+| State | Type | Description |
+|-------|------|-------------|
+| `channel.number` | string R/W | Channel number — write to switch channel |
+| `channel.name` | string R | Current channel name |
+| `channel.list` | JSON R | Full channel list |
+
+### Applications
+
+| State | Type | Description |
+|-------|------|-------------|
+| `app.current` | string R | Current app ID (e.g. `netflix`, `youtube`) |
+| `app.launch` | string W | Launch app by its ID |
 
 ### Media
-| Obiekt | Typ | Opis |
-|--------|-----|------|
-| `media.state` | string R | Stan odtwarzania: `play`, `pause`, `stop` |
 
-### Pilot (remote.*)
-Przyciski: `LEFT`, `RIGHT`, `UP`, `DOWN`, `OK`, `HOME`, `BACK`, `MENU`, `EXIT`, `INFO`, `GUIDE`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `VOLUMEUP`, `VOLUMEDOWN`, `MUTE`, `CHANNELUP`, `CHANNELDOWN`, `PLAY`, `PAUSE`, `STOP`, `FASTFORWARD`, `REWIND`, `0`–`9`, `NETFLIX`, `AMAZON`, `DISNEY` i inne.
+| State | Type | Description |
+|-------|------|-------------|
+| `media.state` | string R | Playback state: `play`, `pause`, `stop` |
 
-Ustaw przycisk na `true` aby go wcisnąć.
+### Remote control (remote.*)
+
+Buttons: `LEFT`, `RIGHT`, `UP`, `DOWN`, `OK`, `HOME`, `BACK`, `MENU`, `EXIT`, `INFO`, `GUIDE`,
+`RED`, `GREEN`, `YELLOW`, `BLUE`, `VOLUMEUP`, `VOLUMEDOWN`, `MUTE`,
+`CHANNELUP`, `CHANNELDOWN`, `PLAY`, `PAUSE`, `STOP`, `FASTFORWARD`, `REWIND`,
+`0`–`9`, `NETFLIX`, `AMAZON`, `DISNEY` and more.
+
+Set a button state to `true` to press it.
 
 ---
 
-## Integracja z MQTT / Loxone
+## MQTT / Loxone integration
 
-Aby wysyłać stany do LoxBerry przez MQTT, zainstaluj adapter **ioBroker.mqtt** jako klient i skieruj go na brokera Mosquitto na LoxBerry. W ioBroker możesz następnie w **Blockly** lub **JavaScript** mapować stany `lgtv-full.0.*` na tematy MQTT, np.:
+To forward states to LoxBerry via MQTT, install the **ioBroker.mqtt** adapter as a client pointing to Mosquitto on LoxBerry.
+Then use **Blockly** or **JavaScript** to map `lgtv-full.0.*` states to MQTT topics:
 
 ```javascript
-// Przykład: wysyłaj tryb obrazu do Loxone przez MQTT
+// Example: send picture mode to Loxone via MQTT
 on({ id: 'lgtv-full.0.picture.mode', change: 'any' }, (obj) => {
     setState('mqtt.0.send.lgtv/pictureMode', obj.state.val);
 });
@@ -132,32 +134,43 @@ on({ id: 'lgtv-full.0.picture.mode', change: 'any' }, (obj) => {
 
 ---
 
-## Przykładowe ID aplikacji (app.launch)
+## Common app IDs (app.launch)
 
-| Aplikacja | ID |
-|-----------|-----|
+| App | ID |
+|-----|----|
 | Netflix | `netflix` |
 | YouTube | `youtube.leanback.v4` |
 | Amazon Prime | `amazon` |
 | Disney+ | `disneyplus` |
 | Spotify | `spotify-beehive` |
-| Przeglądarka | `com.webos.app.browser` |
-| TV (antena) | `com.webos.app.livetv` |
+| Web Browser | `com.webos.app.browser` |
+| Live TV | `com.webos.app.livetv` |
 
 ---
 
-## Rozwiązywanie problemów
+## Troubleshooting
 
-**TV nie odpowiada na WoL**
-- Sprawdź MAC adres (Settings → Network → Wired/Wi-Fi → Advanced)
-- Włącz „Turn on via Wi-Fi (WoL)" w ustawieniach TV: Menu → Ogólne → Urządzenia zewnętrzne → Szybkie uruchomienie + Włącz via sieć
+**TV does not respond to Wake-on-LAN**
+- Verify the MAC address (Settings → Network → Wired/Wi-Fi → Advanced)
+- Enable "Turn on via Wi-Fi (WoL)" in TV settings: Menu → General → External Devices → Quick Start + Turn on via network
 
-**Parowanie się nie pojawia**
-- Sprawdź czy IP jest poprawne i TV jest w tej samej sieci
-- Sprawdź logi adaptera w ioBroker Admin
+**No pairing prompt on TV**
+- Check that the IP address is correct and the TV is on the same network
+- Check adapter logs in ioBroker Admin
 
-**Tryb obrazu nie zmienia się**
-- Niektóre tryby (HDR, Dolby Vision) są dostępne tylko przy odpowiednim sygnale źródłowym — TV może zignorować komendę
+**Picture mode does not change**
+- Some modes (HDR, Dolby Vision) are only available with a matching source signal — the TV may ignore the command
 
-**`screenOff` nie działa**
-- Wymaga webOS ≥ 4.0 (LG 2019+). G4 OLED obsługuje tę funkcję.
+**screenOff does not work**
+- Requires webOS ≥ 4.0 (LG 2019+). G4 OLED supports this feature.
+
+**Picture / sound settings show null after restart**
+- The adapter reads all settings on connection. If values are null, check debug logs for `getSystemSettings` errors.
+- If you see `401 insufficient permissions`: delete the pairing key file and re-pair the TV.
+  Key file location: `/opt/iobroker/iobroker-data/lgtv-full.0/lgtvkey.txt`
+
+---
+
+## License
+
+MIT

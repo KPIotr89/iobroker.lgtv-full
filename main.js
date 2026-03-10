@@ -2,10 +2,10 @@
 
 /**
  * ioBroker adapter: lgtv-full
- * Pełna obsługa LG WebOS TV (OLED G-series i inne, webOS 6+)
- * Własna implementacja WebSocket — bez zależności od lgtv2
+ * Full LG WebOS TV control (OLED G-series and others, webOS 6+)
+ * Custom WebSocket implementation — no dependency on lgtv2
  *
- * Zależności: ws, wake_on_lan, @iobroker/adapter-core
+ * Dependencies: ws, wake_on_lan, @iobroker/adapter-core
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -14,7 +14,7 @@ const path  = require('path');
 const fs    = require('fs');
 const WebSocket = require('ws');
 
-// ─── LG WebOS manifest (wymagany do rejestracji) ────────────────────────────
+// ─── LG WebOS pairing manifest ───────────────────────────────────────────────
 
 const LG_MANIFEST = {
     manifestVersion: 1,
@@ -46,7 +46,7 @@ const LG_MANIFEST = {
     signatures: [{ signatureVersion: 1, signature: 'eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2In0=' }],
 };
 
-// ─── Klasa połączenia z LG WebOS TV ─────────────────────────────────────────
+// ─── LG WebOS WebSocket connection class ─────────────────────────────────────
 
 class LgTvSocket {
     constructor(config) {
@@ -55,8 +55,8 @@ class LgTvSocket {
         this.timeout  = config.timeout || 5000;
         this.ws       = null;
         this.msgId    = 0;
-        this.pending  = {};   // id → callback (jednorazowe)
-        this.subs     = {};   // id → callback (subskrypcje)
+        this.pending  = {};   // id → callback (one-shot requests)
+        this.subs     = {};   // id → callback (subscriptions)
         this.clientKey = null;
 
         this._onConnect = () => {};
@@ -74,12 +74,12 @@ class LgTvSocket {
     }
 
     connect() {
-        // Wczytaj zapisany klucz parowania
+        // Load saved pairing key
         try {
             if (fs.existsSync(this.keyFile)) {
                 this.clientKey = fs.readFileSync(this.keyFile, 'utf8').trim();
             }
-        } catch (e) { /* brak pliku — pierwsze parowanie */ }
+        } catch (e) { /* no file — first pairing */ }
 
         this.ws = new WebSocket(this.url, { rejectUnauthorized: false });
 
@@ -89,7 +89,7 @@ class LgTvSocket {
 
         this.ws.on('open', () => {
             clearTimeout(timer);
-            // Wyślij żądanie rejestracji
+            // Send registration request
             const payload = {
                 forcePairing: false,
                 pairingType: 'PROMPT',
@@ -103,7 +103,7 @@ class LgTvSocket {
             let msg;
             try { msg = JSON.parse(raw); } catch (e) { return; }
 
-            // Log wszystkich wiadomości z TV (debug)
+            // Log all TV messages (debug)
             if (this._logger) this._logger(`TV→ [${msg.type}][${msg.id || '-'}] ${JSON.stringify(msg.payload || msg.error || '').substring(0, 200)}`);
 
             if (msg.type === 'registered') {
@@ -117,7 +117,7 @@ class LgTvSocket {
                 if (msg.id === 'register0') {
                     this._onPrompt();
                 } else {
-                    // Obsłuż błędy dla oczekujących callbacków
+                    // Handle errors for pending callbacks
                     const cb = this.pending[msg.id];
                     if (cb) {
                         delete this.pending[msg.id];
@@ -154,11 +154,11 @@ class LgTvSocket {
         this._send({ type: 'subscribe', id, uri, payload: payload || {} });
     }
 
-    // Zwraca obiekt z metodą send() do wysyłania przycisków pilota
+    // Returns an object with send() for sending remote control buttons
     getSocket(uri, cb) {
         this.request(uri, (err, res) => {
             if (err || !res || !res.socketPath) {
-                return cb(err || new Error('Brak socketPath'));
+                return cb(err || new Error('Missing socketPath'));
             }
             const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
             sock.on('open',  ()  => cb(null, { send: (type, p) => sock.send(JSON.stringify({ type, ...p })) }));
@@ -177,7 +177,7 @@ class LgTvSocket {
     }
 }
 
-// ─── Słowniki ────────────────────────────────────────────────────────────────
+// ─── Dictionaries ─────────────────────────────────────────────────────────────
 
 const PICTURE_MODES = {
     'vivid': 'Vivid', 'standard': 'Standard', 'eco': 'Eco / APS',
@@ -217,7 +217,7 @@ const REMOTE_BUTTONS = [
     'NETFLIX', 'AMAZON', 'DISNEY',
 ];
 
-// ─── Adapter ─────────────────────────────────────────────────────────────────
+// ─── Adapter ──────────────────────────────────────────────────────────────────
 
 class LgtvFullAdapter extends utils.Adapter {
 
@@ -237,7 +237,7 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     async onReady() {
-        this.log.info('Adapter uruchomiony');
+        this.log.info('Adapter started');
         await this.setStateAsync('info.connection', false, true);
         await this.createAllObjects();
         this.connect();
@@ -255,51 +255,51 @@ class LgtvFullAdapter extends utils.Adapter {
             native: {},
         });
 
-        await st('power',       'Zasilanie (WoL)',          'boolean', 'switch.power', true);
-        await st('screenOff',   'Ekran wygaszony',          'boolean', 'switch',       true);
-        await st('screenSaver', 'Wygaszacz aktywny',        'boolean', 'indicator',    false);
+        await st('power',       'Power (WoL)',        'boolean', 'switch.power', true);
+        await st('screenOff',   'Screen off',         'boolean', 'switch',       true);
+        await st('screenSaver', 'Screen saver active','boolean', 'indicator',    false);
 
         await ch('audio', 'Audio');
-        await st('audio.volume', 'Głośność', 'number', 'level.volume', true, { min: 0, max: 100, unit: '%' });
-        await st('audio.mute',   'Wyciszenie', 'boolean', 'media.mute', true);
-        await this.setObjectNotExistsAsync('audio.soundMode',   { type: 'state', common: { name: 'Tryb dźwięku',   type: 'string', role: 'text', read: true, write: true, states: SOUND_MODES   }, native: {} });
-        await this.setObjectNotExistsAsync('audio.soundOutput', { type: 'state', common: { name: 'Wyjście audio',  type: 'string', role: 'text', read: true, write: true, states: SOUND_OUTPUTS }, native: {} });
+        await st('audio.volume', 'Volume', 'number', 'level.volume', true, { min: 0, max: 100, unit: '%' });
+        await st('audio.mute',   'Mute',   'boolean', 'media.mute',  true);
+        await this.setObjectNotExistsAsync('audio.soundMode',   { type: 'state', common: { name: 'Sound Mode',   type: 'string', role: 'text', read: true, write: true, states: SOUND_MODES   }, native: {} });
+        await this.setObjectNotExistsAsync('audio.soundOutput', { type: 'state', common: { name: 'Sound Output', type: 'string', role: 'text', read: true, write: true, states: SOUND_OUTPUTS }, native: {} });
 
-        await ch('picture', 'Obraz');
-        await this.setObjectNotExistsAsync('picture.mode', { type: 'state', common: { name: 'Tryb obrazu', type: 'string', role: 'text', read: true, write: true, states: PICTURE_MODES }, native: {} });
-        await st('picture.brightness', 'Jasność',            'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.contrast',   'Kontrast',           'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.backlight',  'Podświetlenie/OLED', 'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.color',      'Nasycenie kolorów',  'number', 'level', true, { min: 0, max: 100 });
-        await st('picture.sharpness',  'Ostrość',            'number', 'level', true, { min: 0, max: 50  });
+        await ch('picture', 'Picture');
+        await this.setObjectNotExistsAsync('picture.mode', { type: 'state', common: { name: 'Picture Mode', type: 'string', role: 'text', read: true, write: true, states: PICTURE_MODES }, native: {} });
+        await st('picture.brightness', 'Brightness',        'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.contrast',   'Contrast',          'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.backlight',  'Backlight / OLED',  'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.color',      'Color Saturation',  'number', 'level', true, { min: 0, max: 100 });
+        await st('picture.sharpness',  'Sharpness',         'number', 'level', true, { min: 0, max: 50  });
 
-        await ch('input', 'Wejście');
-        await st('input.current', 'Aktualne wejście', 'string', 'text', true);
-        await st('input.list',    'Lista wejść (JSON)', 'string', 'json', false);
+        await ch('input', 'Input');
+        await st('input.current', 'Current input',     'string', 'text', true);
+        await st('input.list',    'Input list (JSON)', 'string', 'json', false);
 
-        await ch('channel', 'Kanał TV');
-        await st('channel.number', 'Numer kanału', 'string', 'text', true);
-        await st('channel.name',   'Nazwa kanału', 'string', 'text', false);
-        await st('channel.list',   'Lista kanałów (JSON)', 'string', 'json', false);
+        await ch('channel', 'TV Channel');
+        await st('channel.number', 'Channel number',    'string', 'text', true);
+        await st('channel.name',   'Channel name',      'string', 'text', false);
+        await st('channel.list',   'Channel list (JSON)', 'string', 'json', false);
 
-        await ch('app', 'Aplikacje');
-        await st('app.current', 'Bieżąca aplikacja (ID)', 'string', 'text', false);
-        await st('app.launch',  'Uruchom aplikację (ID)', 'string', 'text', true);
+        await ch('app', 'Applications');
+        await st('app.current', 'Current app (ID)', 'string', 'text', false);
+        await st('app.launch',  'Launch app (ID)',  'string', 'text', true);
 
         await ch('media', 'Media');
-        await st('media.state', 'Stan odtwarzania', 'string', 'media.state', false);
+        await st('media.state', 'Playback state', 'string', 'media.state', false);
 
-        await ch('remote', 'Pilot');
+        await ch('remote', 'Remote Control');
         for (const btn of REMOTE_BUTTONS) {
             await this.setObjectNotExistsAsync(`remote.${btn}`, {
                 type: 'state',
-                common: { name: `Przycisk ${btn}`, type: 'boolean', role: 'button', read: false, write: true },
+                common: { name: `Button ${btn}`, type: 'boolean', role: 'button', read: false, write: true },
                 native: {},
             });
         }
 
         this.subscribeStates('*');
-        this.log.info('Wszystkie obiekty utworzone');
+        this.log.info('All objects created');
     }
 
     connect() {
@@ -311,13 +311,13 @@ class LgtvFullAdapter extends utils.Adapter {
         const proto   = useSSL ? 'wss' : 'ws';
         const url     = `${proto}://${this.config.host}:${port}`;
 
-        this.log.info(`Łączenie z TV: ${url}`);
+        this.log.info(`Connecting to TV: ${url}`);
 
         this.tv = new LgTvSocket({ url, keyFile, timeout: 5000 });
         this.tv._logger = (msg) => this.log.debug(msg);
 
         this.tv.on('connect', () => {
-            this.log.info('Połączono z LG TV!');
+            this.log.info('Connected to LG TV!');
             this.connected = true;
             this.setStateAsync('info.connection', true, true);
             this.setStateAsync('power', true, true);
@@ -327,7 +327,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.requestSoundSettings();
             this.requestInputList();
             this.requestChannelList();
-            // Polling jako fallback co 60s — na wypadek gdy subskrypcje nie działają
+            // Polling fallback every 60s — in case subscriptions fail
             if (this.pollTimer) clearInterval(this.pollTimer);
             this.pollTimer = setInterval(() => {
                 if (this.connected) {
@@ -338,7 +338,7 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('close', () => {
-            this.log.info('Rozłączono od LG TV');
+            this.log.info('Disconnected from LG TV');
             this.connected   = false;
             this.inputSocket = null;
             if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
@@ -349,11 +349,11 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('error', (err) => {
-            this.log.error(`Błąd połączenia: ${err && err.message ? err.message : err}`);
+            this.log.error(`Connection error: ${err && err.message ? err.message : err}`);
         });
 
         this.tv.on('prompt', () => {
-            this.log.warn('TV prosi o parowanie — zatwierdź na ekranie telewizora!');
+            this.log.warn('TV is requesting pairing — please accept on the TV screen!');
         });
 
         this.tv.connect();
@@ -361,9 +361,9 @@ class LgtvFullAdapter extends utils.Adapter {
 
     openInputSocket() {
         this.tv.getSocket('ssap://com.webos.service.networkinput/getPointerInputService', (err, sock) => {
-            if (err) { this.log.warn(`Socket pilota: ${err}`); return; }
+            if (err) { this.log.warn(`Remote socket error: ${err}`); return; }
             this.inputSocket = sock;
-            this.log.debug('Socket pilota otwarty');
+            this.log.debug('Remote control socket opened');
         });
     }
 
@@ -371,7 +371,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv.subscribe('ssap://audio/getVolume', (err, res) => {
             if (err || !res) return;
             this.log.debug(`getVolume response: ${JSON.stringify(res)}`);
-            // webOS 6+ (LG 2021+) używa volumeStatus zamiast bezpośrednich pól
+            // webOS 6+ (LG 2021+) uses volumeStatus instead of direct fields
             if (res.volumeStatus) {
                 if (res.volumeStatus.volume     !== undefined) this.setStateAsync('audio.volume', res.volumeStatus.volume,     true);
                 if (res.volumeStatus.muteStatus !== undefined) this.setStateAsync('audio.mute',   res.volumeStatus.muteStatus, true);
@@ -407,7 +407,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.setStateAsync('screenSaver', res.actived === true || res.screenSaverRunning === true, true);
         });
 
-        // Subskrypcja zmian ustawień obrazu (push z TV — wszystkie klucze)
+        // Push subscription for picture settings changes
         this.tv.subscribe('ssap://settings/getSystemSettings',
             { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'] },
             (err, res) => {
@@ -423,7 +423,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
         );
 
-        // Subskrypcja zmian trybu dźwięku (push z TV)
+        // Push subscription for sound mode changes
         this.tv.subscribe('ssap://settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
@@ -440,47 +440,34 @@ class LgtvFullAdapter extends utils.Adapter {
         const applySettings = (s) => {
             if (!s) return;
             this.log.debug(`Picture settings received: ${JSON.stringify(s)}`);
-            if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,              true);
-            if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness),     true);
-            if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),       true);
+            if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,          true);
+            if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
+            if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
+            // oledLight is not allowed as a filter key on LG G4 — use backlight
             const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
-            if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),               true);
-            if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),          true);
-            if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
+            if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),           true);
+            if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
+            if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
         };
 
-        // Uwaga: oledLight jest niedozwolony jako klucz filtra na LG G4 — używamy backlight
         const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
 
         this.tv.request('ssap://settings/getSystemSettings',
             { category: 'picture', keys: KEYS },
             (err, res) => {
                 if (!err && res && res.settings) { applySettings(res.settings); return; }
-                this.log.debug(`getSystemSettings picture error: ${err ? err.message : 'brak settings'}`);
+                this.log.debug(`getSystemSettings picture error: ${err ? err.message : 'no settings'}`);
             }
         );
     }
 
     requestSoundSettings() {
-        // webOS 6+ — spróbuj nowego URI
-        this.tv.request('ssap://com.webos.service.settings/getSystemSettings',
+        this.tv.request('ssap://settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
-                if (!err && res && res.settings && res.settings.soundMode) {
+                if (err) { this.log.debug(`getSystemSettings sound error: ${err.message}`); return; }
+                if (res && res.settings && res.settings.soundMode)
                     this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
-                    return;
-                }
-                this.log.debug(`com.webos.service.settings sound: ${err ? err.message : 'brak settings'} — próba ssap://settings`);
-
-                // Fallback
-                this.tv.request('ssap://settings/getSystemSettings',
-                    { category: 'sound', keys: ['soundMode'] },
-                    (err2, res2) => {
-                        if (err2) { this.log.warn(`getSystemSettings sound: ${err2.message}`); return; }
-                        if (res2 && res2.settings && res2.settings.soundMode)
-                            this.setStateAsync('audio.soundMode', res2.settings.soundMode, true);
-                    }
-                );
             }
         );
     }
@@ -497,7 +484,7 @@ class LgtvFullAdapter extends utils.Adapter {
             });
             this.extendObject('input.current', { common: { states } });
             this.setStateAsync('input.list', JSON.stringify(states), true);
-            this.log.info(`Wejścia: ${Object.values(states).join(', ')}`);
+            this.log.info(`Inputs: ${Object.values(states).join(', ')}`);
         });
     }
 
@@ -508,7 +495,7 @@ class LgtvFullAdapter extends utils.Adapter {
             const map = {};
             this.channels.forEach(c => { map[c.channelNumber] = c.channelName; });
             this.setStateAsync('channel.list', JSON.stringify(map), true);
-            this.log.info(`Kanałów: ${this.channels.length}`);
+            this.log.info(`Channels: ${this.channels.length}`);
         });
     }
 
@@ -516,7 +503,7 @@ class LgtvFullAdapter extends utils.Adapter {
         if (!state || state.ack) return;
         const key = id.split('.').slice(2).join('.');
         const val = state.val;
-        this.log.debug(`Komenda: ${key} = ${val}`);
+        this.log.debug(`Command: ${key} = ${val}`);
 
         if (key === 'power') {
             if (!val) {
@@ -526,16 +513,16 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (mac) {
                     wol.wake(mac, { num_packets: 5 }, (err) => {
                         if (err) this.log.error(`WoL error: ${err}`);
-                        else     this.log.info('WoL pakiet wysłany');
+                        else     this.log.info('WoL packet sent');
                     });
                 } else {
-                    this.log.warn('Brak MAC — ustaw w konfiguracji adaptera');
+                    this.log.warn('No MAC address configured — set it in adapter settings');
                 }
             }
             return;
         }
 
-        if (!this.connected) { this.log.warn(`TV niepołączony, ignoruję: ${key}`); return; }
+        if (!this.connected) { this.log.warn(`TV not connected, ignoring: ${key}`); return; }
 
         switch (key) {
             case 'screenOff':
@@ -550,19 +537,18 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request('ssap://audio/setMute', { mute: !!val });
                 break;
             case 'audio.soundMode':
-                // Spróbuj nowego URI, potem starego
-                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { soundMode: val }, category: 'sound' },
-                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { soundMode: val }, category: 'sound' }); }
+                    (err) => { if (err) this.log.warn(`setSystemSettings sound error: ${err.message}`); }
                 );
                 break;
             case 'audio.soundOutput':
                 this.tv.request('ssap://audio/changeSoundOutput', { output: val });
                 break;
             case 'picture.mode':
-                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { pictureMode: val }, category: 'picture' },
-                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { pictureMode: val }, category: 'picture' }); }
+                    (err) => { if (err) this.log.warn(`setSystemSettings picture mode error: ${err.message}`); }
                 );
                 break;
             case 'picture.brightness':
@@ -571,9 +557,9 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.color':
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
-                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                this.tv.request('ssap://settings/setSystemSettings',
                     { settings: { [k]: String(Math.round(val)) }, category: 'picture' },
-                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { [k]: String(Math.round(val)) }, category: 'picture' }); }
+                    (err) => { if (err) this.log.warn(`setSystemSettings ${k} error: ${err.message}`); }
                 );
                 break;
             }
@@ -583,7 +569,7 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'channel.number': {
                 const ch = this.channels.find(c => c.channelNumber === String(val));
                 if (ch) this.tv.request('ssap://tv/openChannel', { channelId: ch.channelId });
-                else    this.log.warn(`Kanał ${val} nie znaleziony`);
+                else    this.log.warn(`Channel ${val} not found`);
                 break;
             }
             case 'app.launch':
@@ -593,7 +579,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (key.startsWith('remote.')) {
                     const btn = key.replace('remote.', '');
                     if (this.inputSocket) this.inputSocket.send('button', { name: btn });
-                    else { this.log.warn(`Socket pilota niegotowy (${btn})`); this.openInputSocket(); }
+                    else { this.log.warn(`Remote socket not ready (${btn})`); this.openInputSocket(); }
                 }
         }
     }
