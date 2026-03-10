@@ -1,6 +1,6 @@
 {
   "name": "iobroker.lgtv-full",
-  "version": "1.0.2",
+  "version": "1.0.0",
   "description": "Full-featured LG WebOS TV adapter for ioBroker — Picture Mode, Sound Mode, inputs, remote",
   "author": "Custom Adapter",
   "license": "MIT",
@@ -9,12 +9,12 @@
     "start": "node main.js"
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^2.6.7",
-    "lgtv2": "1.1.2",
-    "wake_on_lan": "1.0.0"
+    "@iobroker/adapter-core": "^3.1.6",
+    "lgtv2": "^1.1.2",
+    "wake_on_lan": "^1.2.0"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
   },
   "keywords": [
     "ioBroker",
