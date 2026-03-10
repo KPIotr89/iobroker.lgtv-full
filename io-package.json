@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "news": {
+      "1.1.6": {
+        "en": "Fix: use real LG-signed RSA manifest from lgtv2 — TV now validates signature and grants WRITE_SETTINGS, enabling picture/sound mode writes via SSAP",
+        "pl": "Poprawka: prawdziwy manifest RSA podpisany przez LG — TV weryfikuje podpis i przyznaje WRITE_SETTINGS, zapis trybu obrazu/dźwięku przez SSAP działa"
+      },
       "1.1.5": {
         "en": "Fix: use Luna notification trick to bypass SSAP 401 on picture/sound writes; all settings now use Luna service directly",
         "pl": "Poprawka: zapis ustawień obrazu i dźwięku przez usługę Luna (obejście blokady SSAP 401)"

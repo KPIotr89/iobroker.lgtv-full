@@ -16,6 +16,9 @@ const WebSocket = require('ws');
 
 // ─── LG WebOS pairing manifest ───────────────────────────────────────────────
 
+// Manifest from lgtv2 (merdok/lgtv2) — contains a real RSA-SHA256 signature
+// issued by LG Electronics. The TV validates this signature and grants the
+// signed.permissions (including WRITE_SETTINGS) which enables setSystemSettings writes.
 const LG_MANIFEST = {
     manifestVersion: 1,
     appVersion: '1.1',
@@ -23,13 +26,16 @@ const LG_MANIFEST = {
         created: '20140509',
         appId: 'com.lge.test',
         vendorId: 'com.lge',
-        localizedAppNames: { '': 'LG Remote App', 'ko-KR': '리모컨 앱' },
+        localizedAppNames: {
+            '': 'LG Remote App',
+            'ko-KR': '리모컨 앱',
+            'zxx-XX': 'ЛГ Rэмotэ AПП',
+        },
         localizedVendorNames: { '': 'LG Electronics' },
         permissions: [
             'TEST_SECURE', 'CONTROL_INPUT_TEXT', 'CONTROL_MOUSE_AND_KEYBOARD',
             'READ_INSTALLED_APPS', 'READ_LGE_SDX', 'READ_NOTIFICATIONS', 'SEARCH',
-            'READ_SETTINGS', 'WRITE_SETTINGS', 'WRITE_NOTIFICATION_ALERT',
-            'CONTROL_POWER', 'CONTROL_DISPLAY',
+            'WRITE_SETTINGS', 'WRITE_NOTIFICATION_ALERT', 'CONTROL_POWER',
             'READ_CURRENT_CHANNEL', 'READ_RUNNING_APPS', 'READ_UPDATE_INFO',
             'UPDATE_FROM_REMOTE_APP', 'READ_LGE_TV_INPUT_EVENTS', 'READ_TV_CURRENT_TIME',
         ],
@@ -42,9 +48,22 @@ const LG_MANIFEST = {
         'CONTROL_INPUT_TV', 'CONTROL_POWER', 'READ_APP_STATUS',
         'READ_CURRENT_CHANNEL', 'READ_INPUT_DEVICE_LIST', 'READ_NETWORK_STATE',
         'READ_RUNNING_APPS', 'READ_TV_CHANNEL_LIST', 'WRITE_NOTIFICATION_TOAST',
-        'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS', 'WRITE_SETTINGS',
+        'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS',
+        'CONTROL_TV_SCREEN', 'CONTROL_TV_STANBY', 'CONTROL_FAVORITE_GROUP',
+        'CONTROL_USER_INFO', 'CHECK_BLUETOOTH_DEVICE', 'CONTROL_BLUETOOTH',
+        'CONTROL_TIMER_INFO', 'STB_INTERNAL_CONNECTION', 'CONTROL_RECORDING',
+        'READ_RECORDING_STATE', 'WRITE_RECORDING_LIST', 'READ_RECORDING_LIST',
+        'READ_RECORDING_SCHEDULE', 'WRITE_RECORDING_SCHEDULE', 'READ_STORAGE_DEVICE_LIST',
+        'READ_TV_PROGRAM_INFO', 'CONTROL_BOX_CHANNEL', 'READ_TV_ACR_AUTH_TOKEN',
+        'READ_TV_CONTENT_STATE', 'READ_TV_CURRENT_TIME', 'ADD_LAUNCHER_CHANNEL',
+        'SET_CHANNEL_SKIP', 'RELEASE_CHANNEL_SKIP', 'CONTROL_CHANNEL_BLOCK',
+        'DELETE_SELECT_CHANNEL', 'CONTROL_CHANNEL_GROUP', 'SCAN_TV_CHANNELS',
+        'CONTROL_TV_POWER', 'CONTROL_WOL',
     ],
-    signatures: [{ signatureVersion: 1, signature: 'eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2In0=' }],
+    signatures: [{
+        signatureVersion: 1,
+        signature: 'eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2Iiwia2V5SWQiOiJ0ZXN0LXNpZ25pbmctY2VydCIsInNpZ25hdHVyZVZlcnNpb24iOjF9.hrVRgjCwXVvE2OOSpDZ58hR+59aFNwYDyjQgKk3auukd7pcegmE2CzPCa0bJ0ZsRAcKkCTJrWo5iDzNhMBWRyaMOv5zWSrthlf7G128qvIlpMT0YNY+n/FaOHE73uLrS/g7swl3/qH/BGFG2Hu4RlL48eb3lLKqTt2xKHdCs6Cd4RMfJPYnzgvI4BNrFUKsjkcu+WD4OO2A27Pq1n50cMchmcaXadJhGrOqH5YmHdOCj5NSHzJYrsW0HPlpuAx/ECMeIZYDh6RMqaFM2DXzdKX9NmmyqzJ3o/0lkk/N97gfVRLW5hA29yeAwaCViZNCP8iC9aO0q9fQojoa7NQnAtw==',
+    }],
 };
 
 // ─── LG WebOS WebSocket connection class ─────────────────────────────────────
@@ -517,48 +536,17 @@ class LgtvFullAdapter extends utils.Adapter {
         );
     }
 
-    /**
-     * Execute a Luna service command via the SSAP notification trick.
-     * SSAP cannot call Luna services directly (401), but the TV executes Luna
-     * commands that are embedded as the onclose handler of a system alert —
-     * when we immediately close the alert the handler fires inside the TV's
-     * own permission context.
-     */
-    _sendLunaCommand(lunaUri, lunaParams, cb) {
-        this.tv.request('ssap://system.notifications/createAlert', {
-            message: ' ',
-            buttons: [{ label: ' ' }],
-            onclose: { uri: lunaUri, params: lunaParams },
-        }, (err, res) => {
-            if (err) {
-                this.log.debug(`createAlert failed: ${err.message}`);
-                if (cb) cb(err);
-                return;
-            }
-            if (res && res.alertId) {
-                this.tv.request('ssap://system.notifications/closeAlert',
-                    { alertId: res.alertId },
-                    (err2) => { if (cb) cb(err2 || null); }
-                );
-            } else {
-                if (cb) cb(null);
-            }
-        });
-    }
-
-    /** Write picture settings via Luna (bypasses SSAP 401 restriction). */
+    /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */
     _setPictureSetting(settings, cb) {
-        this._sendLunaCommand(
-            'luna://com.webos.settingsservice/setSystemSettings',
+        this.tv.request('ssap://settings/setSystemSettings',
             { category: 'picture', settings },
             cb
         );
     }
 
-    /** Write sound settings via Luna. */
+    /** Write sound settings via SSAP. */
     _setSoundSetting(settings, cb) {
-        this._sendLunaCommand(
-            'luna://com.webos.settingsservice/setSystemSettings',
+        this.tv.request('ssap://settings/setSystemSettings',
             { category: 'sound', settings },
             cb
         );
