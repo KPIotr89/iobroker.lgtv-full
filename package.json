@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.1.6",
-    "lgtv2": "^1.1.2",
+    "lgtv2": "github:merdok/lgtv2",
     "wake_on_lan": "^1.0.0"
   },
   "engines": {
