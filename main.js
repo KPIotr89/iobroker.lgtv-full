@@ -346,8 +346,15 @@ class LgtvFullAdapter extends utils.Adapter {
     subscribeEvents() {
         this.tv.subscribe('ssap://audio/getVolume', (err, res) => {
             if (err || !res) return;
-            if (res.volume !== undefined) this.setStateAsync('audio.volume', res.volume, true);
-            if (res.muted  !== undefined) this.setStateAsync('audio.mute',   res.muted,  true);
+            this.log.debug(`getVolume response: ${JSON.stringify(res)}`);
+            // webOS 6+ (LG 2021+) używa volumeStatus zamiast bezpośrednich pól
+            if (res.volumeStatus) {
+                if (res.volumeStatus.volume     !== undefined) this.setStateAsync('audio.volume', res.volumeStatus.volume,     true);
+                if (res.volumeStatus.muteStatus !== undefined) this.setStateAsync('audio.mute',   res.volumeStatus.muteStatus, true);
+            } else {
+                if (res.volume !== undefined) this.setStateAsync('audio.volume', res.volume, true);
+                if (res.muted  !== undefined) this.setStateAsync('audio.mute',   res.muted,  true);
+            }
         });
 
         this.tv.subscribe('ssap://com.webos.applicationManager/getForegroundAppInfo', (err, res) => {
@@ -394,17 +401,21 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     requestPictureSettings() {
+        // Próba 1: z listą kluczy
         this.tv.request('ssap://settings/getSystemSettings',
-            { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'] },
+            { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'] },
             (err, res) => {
+                this.log.debug(`getSystemSettings picture: ${JSON.stringify(res)}, err: ${err}`);
                 if (err || !res || !res.settings) return;
                 const s = res.settings;
-                if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,         true);
-                if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
-                if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
-                if (s.backlight   !== undefined) this.setStateAsync('picture.backlight',  parseInt(s.backlight),  true);
-                if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
-                if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
+                if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,              true);
+                if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness),     true);
+                if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),       true);
+                // OLED: backlight → oledLight, LCD: backlight → backlight
+                const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
+                if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),               true);
+                if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),          true);
+                if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
             }
         );
     }
@@ -413,6 +424,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv.request('ssap://settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
+                this.log.debug(`getSystemSettings sound: ${JSON.stringify(res)}, err: ${err}`);
                 if (err || !res || !res.settings) return;
                 if (res.settings.soundMode) this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
             }
