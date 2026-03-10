@@ -517,6 +517,53 @@ class LgtvFullAdapter extends utils.Adapter {
         );
     }
 
+    /**
+     * Execute a Luna service command via the SSAP notification trick.
+     * SSAP cannot call Luna services directly (401), but the TV executes Luna
+     * commands that are embedded as the onclose handler of a system alert —
+     * when we immediately close the alert the handler fires inside the TV's
+     * own permission context.
+     */
+    _sendLunaCommand(lunaUri, lunaParams, cb) {
+        this.tv.request('ssap://system.notifications/createAlert', {
+            message: ' ',
+            buttons: [{ label: ' ' }],
+            onclose: { uri: lunaUri, params: lunaParams },
+        }, (err, res) => {
+            if (err) {
+                this.log.debug(`createAlert failed: ${err.message}`);
+                if (cb) cb(err);
+                return;
+            }
+            if (res && res.alertId) {
+                this.tv.request('ssap://system.notifications/closeAlert',
+                    { alertId: res.alertId },
+                    (err2) => { if (cb) cb(err2 || null); }
+                );
+            } else {
+                if (cb) cb(null);
+            }
+        });
+    }
+
+    /** Write picture settings via Luna (bypasses SSAP 401 restriction). */
+    _setPictureSetting(settings, cb) {
+        this._sendLunaCommand(
+            'luna://com.webos.settingsservice/setSystemSettings',
+            { category: 'picture', settings },
+            cb
+        );
+    }
+
+    /** Write sound settings via Luna. */
+    _setSoundSetting(settings, cb) {
+        this._sendLunaCommand(
+            'luna://com.webos.settingsservice/setSystemSettings',
+            { category: 'sound', settings },
+            cb
+        );
+    }
+
     requestInputList() {
         this.tv.request('ssap://tv/getExternalInputList', (err, res) => {
             if (err || !res || !res.devices) return;
@@ -587,9 +634,8 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.setStateAsync(id, !!val, true);
                 break;
             case 'audio.soundMode': {
-                this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { soundMode: val }, category: 'sound' },
-                    (err) => { if (err) this.log.warn(`setSystemSettings sound error: ${err.message}`); }
+                this._setSoundSetting({ soundMode: val },
+                    (err) => { if (err) this.log.warn(`sound mode write error: ${err.message}`); }
                 );
                 this.setStateAsync(id, val, true);
                 const sn = SOUND_MODE_NUM[val];
@@ -599,9 +645,8 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'audio.soundModeNum': {
                 const modeKey = SOUND_MODE_KEYS[val - 1];
                 if (modeKey) {
-                    this.tv.request('ssap://settings/setSystemSettings',
-                        { settings: { soundMode: modeKey }, category: 'sound' },
-                        (err) => { if (err) this.log.warn(`setSystemSettings soundModeNum error: ${err.message}`); }
+                    this._setSoundSetting({ soundMode: modeKey },
+                        (err) => { if (err) this.log.warn(`sound modeNum write error: ${err.message}`); }
                     );
                     this.setStateAsync(id, val, true);
                     this.setStateAsync('audio.soundMode', modeKey, true);
@@ -622,10 +667,9 @@ class LgtvFullAdapter extends utils.Adapter {
                 break;
             }
             case 'picture.mode': {
-                this.tv.request('ssap://settings/setSystemSettings',
-                    { settings: { pictureMode: val }, category: 'picture' },
-                    (err) => { if (err) this.log.warn(`setSystemSettings picture mode error: ${err.message}`); }
-                );
+                this._setPictureSetting({ pictureMode: val }, (err) => {
+                    if (err) this.log.warn(`picture mode write error: ${err.message}`);
+                });
                 this.setStateAsync(id, val, true);
                 const pn = PICTURE_MODE_NUM[val];
                 if (pn !== undefined) this.setStateAsync('picture.modeNum', pn, true);
@@ -634,10 +678,9 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.modeNum': {
                 const picKey = PICTURE_MODE_KEYS[val - 1];
                 if (picKey) {
-                    this.tv.request('ssap://settings/setSystemSettings',
-                        { settings: { pictureMode: picKey }, category: 'picture' },
-                        (err) => { if (err) this.log.warn(`setSystemSettings pictureModeNum error: ${err.message}`); }
-                    );
+                    this._setPictureSetting({ pictureMode: picKey }, (err) => {
+                        if (err) this.log.warn(`picture modeNum write error: ${err.message}`);
+                    });
                     this.setStateAsync(id, val, true);
                     this.setStateAsync('picture.mode', picKey, true);
                 }
@@ -648,28 +691,13 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.backlight':
             case 'picture.color':
             case 'picture.sharpness': {
-                let k = key.split('.')[1];
+                const k = key.split('.')[1];
                 const rounded = Math.round(val);
-                // LG OLED TVs use 'oledLight' key for backlight, try both
-                if (k === 'backlight') {
-                    this.tv.request('ssap://settings/setSystemSettings',
-                        { category: 'picture', settings: { backlight: String(rounded) } },
-                        (err) => {
-                            if (err) {
-                                this.log.debug(`backlight write failed, trying oledLight: ${err.message}`);
-                                this.tv.request('ssap://settings/setSystemSettings',
-                                    { category: 'picture', settings: { oledLight: String(rounded) } },
-                                    (err2) => { if (err2) this.log.warn(`oledLight write error: ${err2.message}`); }
-                                );
-                            }
-                        }
-                    );
-                } else {
-                    this.tv.request('ssap://settings/setSystemSettings',
-                        { category: 'picture', settings: { [k]: String(rounded) } },
-                        (err) => { if (err) this.log.warn(`setSystemSettings ${k} error: ${err.message}`); }
-                    );
-                }
+                // LG OLED TVs use 'oledLight' key for backlight
+                const settingKey = k === 'backlight' ? 'oledLight' : k;
+                this._setPictureSetting({ [settingKey]: String(rounded) },
+                    (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
+                );
                 this.setStateAsync(id, rounded, true);
                 break;
             }
