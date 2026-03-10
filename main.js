@@ -103,8 +103,10 @@ class LgTvSocket {
             let msg;
             try { msg = JSON.parse(raw); } catch (e) { return; }
 
+            // Log wszystkich wiadomości z TV (debug)
+            if (this._logger) this._logger(`TV→ [${msg.type}][${msg.id || '-'}] ${JSON.stringify(msg.payload || msg.error || '').substring(0, 200)}`);
+
             if (msg.type === 'registered') {
-                // Zapisz nowy klucz
                 if (msg.payload && msg.payload['client-key']) {
                     this.clientKey = msg.payload['client-key'];
                     try { fs.writeFileSync(this.keyFile, this.clientKey, 'utf8'); } catch (e) {}
@@ -112,7 +114,16 @@ class LgTvSocket {
                 this._onConnect();
 
             } else if (msg.type === 'error') {
-                if (msg.id === 'register0') this._onPrompt();
+                if (msg.id === 'register0') {
+                    this._onPrompt();
+                } else {
+                    // Obsłuż błędy dla oczekujących callbacków
+                    const cb = this.pending[msg.id];
+                    if (cb) {
+                        delete this.pending[msg.id];
+                        cb(new Error(msg.error || JSON.stringify(msg)), null);
+                    }
+                }
 
             } else if (msg.type === 'response' || msg.type === 'subscription') {
                 const cb = this.pending[msg.id] || this.subs[msg.id];
@@ -300,6 +311,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.log.info(`Łączenie z TV: ${url}`);
 
         this.tv = new LgTvSocket({ url, keyFile, timeout: 5000 });
+        this.tv._logger = (msg) => this.log.debug(msg);
 
         this.tv.on('connect', () => {
             this.log.info('Połączono z LG TV!');
@@ -401,21 +413,35 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     requestPictureSettings() {
-        // Próba 1: z listą kluczy
+        const applySettings = (s) => {
+            if (!s) return;
+            this.log.debug(`Picture settings received: ${JSON.stringify(s)}`);
+            if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,              true);
+            if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness),     true);
+            if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),       true);
+            const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
+            if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),               true);
+            if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),          true);
+            if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
+        };
+
+        // Próba z listą kluczy
         this.tv.request('ssap://settings/getSystemSettings',
             { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'] },
             (err, res) => {
-                this.log.debug(`getSystemSettings picture: ${JSON.stringify(res)}, err: ${err}`);
-                if (err || !res || !res.settings) return;
-                const s = res.settings;
-                if (s.pictureMode !== undefined) this.setStateAsync('picture.mode',       s.pictureMode,              true);
-                if (s.brightness  !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness),     true);
-                if (s.contrast    !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),       true);
-                // OLED: backlight → oledLight, LCD: backlight → backlight
-                const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
-                if (bl !== undefined)             this.setStateAsync('picture.backlight',  parseInt(bl),               true);
-                if (s.color       !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),          true);
-                if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
+                if (err) {
+                    this.log.debug(`getSystemSettings picture (z keys) error: ${err.message} — próba bez keys`);
+                    // Próba bez keys (niektóre webOS nie obsługują filtrowania)
+                    this.tv.request('ssap://settings/getSystemSettings',
+                        { category: 'picture' },
+                        (err2, res2) => {
+                            if (err2) { this.log.warn(`getSystemSettings picture error: ${err2.message}`); return; }
+                            applySettings(res2 && res2.settings);
+                        }
+                    );
+                    return;
+                }
+                applySettings(res && res.settings);
             }
         );
     }
