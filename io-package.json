@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "news": {
+      "1.0.5": {
+        "en": "Fix: 401 permissions for picture/sound settings — use com.webos.service.settings URI, add READ_SETTINGS to manifest",
+        "pl": "Poprawka: błąd 401 dla ustawień obrazu/dźwięku — nowy URI i uprawnienie READ_SETTINGS w manifeście"
+      },
       "1.0.4": {
         "en": "Fix: webOS 6+ volume format (volumeStatus), oledLight support, debug logging",
         "pl": "Poprawka: format głośności webOS 6+, oledLight, logowanie debug"

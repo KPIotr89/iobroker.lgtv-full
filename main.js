@@ -28,7 +28,7 @@ const LG_MANIFEST = {
         permissions: [
             'TEST_SECURE', 'CONTROL_INPUT_TEXT', 'CONTROL_MOUSE_AND_KEYBOARD',
             'READ_INSTALLED_APPS', 'READ_LGE_SDX', 'READ_NOTIFICATIONS', 'SEARCH',
-            'WRITE_SETTINGS', 'WRITE_NOTIFICATION_ALERT', 'CONTROL_POWER',
+            'READ_SETTINGS', 'WRITE_SETTINGS', 'WRITE_NOTIFICATION_ALERT', 'CONTROL_POWER',
             'READ_CURRENT_CHANNEL', 'READ_RUNNING_APPS', 'READ_UPDATE_INFO',
             'UPDATE_FROM_REMOTE_APP', 'READ_LGE_TV_INPUT_EVENTS', 'READ_TV_CURRENT_TIME',
         ],
@@ -41,7 +41,7 @@ const LG_MANIFEST = {
         'CONTROL_INPUT_TV', 'CONTROL_POWER', 'READ_APP_STATUS',
         'READ_CURRENT_CHANNEL', 'READ_INPUT_DEVICE_LIST', 'READ_NETWORK_STATE',
         'READ_RUNNING_APPS', 'READ_TV_CHANNEL_LIST', 'WRITE_NOTIFICATION_TOAST',
-        'READ_POWER_STATE', 'READ_COUNTRY_INFO',
+        'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS',
     ],
     signatures: [{ signatureVersion: 1, signature: 'eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2In0=' }],
 };
@@ -395,7 +395,8 @@ class LgtvFullAdapter extends utils.Adapter {
             this.setStateAsync('screenSaver', res.actived === true || res.screenSaverRunning === true, true);
         });
 
-        this.tv.subscribe('ssap://settings/getSystemSettings',
+        // webOS 6+: ssap://com.webos.service.settings/getSystemSettings ma szersze uprawnienia
+        this.tv.subscribe('ssap://com.webos.service.settings/getSystemSettings',
             { category: 'picture', keys: ['pictureMode'] },
             (err, res) => {
                 if (err || !res || !res.settings) return;
@@ -403,7 +404,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
         );
 
-        this.tv.subscribe('ssap://settings/getSystemSettings',
+        this.tv.subscribe('ssap://com.webos.service.settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
                 if (err || !res || !res.settings) return;
@@ -425,34 +426,59 @@ class LgtvFullAdapter extends utils.Adapter {
             if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
         };
 
-        // Próba z listą kluczy
-        this.tv.request('ssap://settings/getSystemSettings',
-            { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'] },
+        const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'];
+
+        // webOS 6+ (G4 i nowsze) wymaga ssap://com.webos.service.settings — spróbuj najpierw
+        this.tv.request('ssap://com.webos.service.settings/getSystemSettings',
+            { category: 'picture', keys: KEYS },
             (err, res) => {
-                if (err) {
-                    this.log.debug(`getSystemSettings picture (z keys) error: ${err.message} — próba bez keys`);
-                    // Próba bez keys (niektóre webOS nie obsługują filtrowania)
-                    this.tv.request('ssap://settings/getSystemSettings',
-                        { category: 'picture' },
-                        (err2, res2) => {
-                            if (err2) { this.log.warn(`getSystemSettings picture error: ${err2.message}`); return; }
-                            applySettings(res2 && res2.settings);
-                        }
-                    );
-                    return;
-                }
-                applySettings(res && res.settings);
+                if (!err && res && res.settings) { applySettings(res.settings); return; }
+                this.log.debug(`com.webos.service.settings picture: ${err ? err.message : 'brak settings'} — próba ssap://settings`);
+
+                // Fallback: stary URI
+                this.tv.request('ssap://settings/getSystemSettings',
+                    { category: 'picture', keys: KEYS },
+                    (err2, res2) => {
+                        if (!err2 && res2 && res2.settings) { applySettings(res2.settings); return; }
+                        this.log.debug(`ssap://settings picture: ${err2 ? err2.message : 'brak settings'} — próba bez keys`);
+
+                        // Ostatnia próba: bez filtrowania kluczy
+                        this.tv.request('ssap://settings/getSystemSettings',
+                            { category: 'picture' },
+                            (err3, res3) => {
+                                if (err3) {
+                                    this.log.warn(`getSystemSettings picture: 401 insufficient permissions. Usuń plik klucza i sparuj TV ponownie!`);
+                                    return;
+                                }
+                                applySettings(res3 && res3.settings);
+                            }
+                        );
+                    }
+                );
             }
         );
     }
 
     requestSoundSettings() {
-        this.tv.request('ssap://settings/getSystemSettings',
+        // webOS 6+ — spróbuj nowego URI
+        this.tv.request('ssap://com.webos.service.settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
-                this.log.debug(`getSystemSettings sound: ${JSON.stringify(res)}, err: ${err}`);
-                if (err || !res || !res.settings) return;
-                if (res.settings.soundMode) this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                if (!err && res && res.settings && res.settings.soundMode) {
+                    this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                    return;
+                }
+                this.log.debug(`com.webos.service.settings sound: ${err ? err.message : 'brak settings'} — próba ssap://settings`);
+
+                // Fallback
+                this.tv.request('ssap://settings/getSystemSettings',
+                    { category: 'sound', keys: ['soundMode'] },
+                    (err2, res2) => {
+                        if (err2) { this.log.warn(`getSystemSettings sound: ${err2.message}`); return; }
+                        if (res2 && res2.settings && res2.settings.soundMode)
+                            this.setStateAsync('audio.soundMode', res2.settings.soundMode, true);
+                    }
+                );
             }
         );
     }
@@ -522,13 +548,20 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request('ssap://audio/setMute', { mute: !!val });
                 break;
             case 'audio.soundMode':
-                this.tv.request('ssap://settings/setSystemSettings', { settings: { soundMode: val }, category: 'sound' });
+                // Spróbuj nowego URI, potem starego
+                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                    { settings: { soundMode: val }, category: 'sound' },
+                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { soundMode: val }, category: 'sound' }); }
+                );
                 break;
             case 'audio.soundOutput':
                 this.tv.request('ssap://audio/changeSoundOutput', { output: val });
                 break;
             case 'picture.mode':
-                this.tv.request('ssap://settings/setSystemSettings', { settings: { pictureMode: val }, category: 'picture' });
+                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                    { settings: { pictureMode: val }, category: 'picture' },
+                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { pictureMode: val }, category: 'picture' }); }
+                );
                 break;
             case 'picture.brightness':
             case 'picture.contrast':
@@ -536,7 +569,10 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.color':
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
-                this.tv.request('ssap://settings/setSystemSettings', { settings: { [k]: String(Math.round(val)) }, category: 'picture' });
+                this.tv.request('ssap://com.webos.service.settings/setSystemSettings',
+                    { settings: { [k]: String(Math.round(val)) }, category: 'picture' },
+                    (err) => { if (err) this.tv.request('ssap://settings/setSystemSettings', { settings: { [k]: String(Math.round(val)) }, category: 'picture' }); }
+                );
                 break;
             }
             case 'input.current':
