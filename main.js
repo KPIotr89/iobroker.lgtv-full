@@ -327,14 +327,14 @@ class LgtvFullAdapter extends utils.Adapter {
             this.requestSoundSettings();
             this.requestInputList();
             this.requestChannelList();
-            // Polling co 30s — bo getSystemSettings nie obsługuje subskrypcji
+            // Polling jako fallback co 60s — na wypadek gdy subskrypcje nie działają
             if (this.pollTimer) clearInterval(this.pollTimer);
             this.pollTimer = setInterval(() => {
                 if (this.connected) {
                     this.requestPictureSettings();
                     this.requestSoundSettings();
                 }
-            }, 30000);
+            }, 60000);
         });
 
         this.tv.on('close', () => {
@@ -407,20 +407,27 @@ class LgtvFullAdapter extends utils.Adapter {
             this.setStateAsync('screenSaver', res.actived === true || res.screenSaverRunning === true, true);
         });
 
-        // webOS 6+: ssap://com.webos.service.settings/getSystemSettings ma szersze uprawnienia
-        this.tv.subscribe('ssap://com.webos.service.settings/getSystemSettings',
+        // Subskrypcja zmian trybu obrazu (push z TV)
+        this.tv.subscribe('ssap://settings/getSystemSettings',
             { category: 'picture', keys: ['pictureMode'] },
             (err, res) => {
                 if (err || !res || !res.settings) return;
-                if (res.settings.pictureMode) this.setStateAsync('picture.mode', res.settings.pictureMode, true);
+                if (res.settings.pictureMode) {
+                    this.log.debug(`Picture mode push: ${res.settings.pictureMode}`);
+                    this.setStateAsync('picture.mode', res.settings.pictureMode, true);
+                }
             }
         );
 
-        this.tv.subscribe('ssap://com.webos.service.settings/getSystemSettings',
+        // Subskrypcja zmian trybu dźwięku (push z TV)
+        this.tv.subscribe('ssap://settings/getSystemSettings',
             { category: 'sound', keys: ['soundMode'] },
             (err, res) => {
                 if (err || !res || !res.settings) return;
-                if (res.settings.soundMode) this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                if (res.settings.soundMode) {
+                    this.log.debug(`Sound mode push: ${res.settings.soundMode}`);
+                    this.setStateAsync('audio.soundMode', res.settings.soundMode, true);
+                }
             }
         );
     }

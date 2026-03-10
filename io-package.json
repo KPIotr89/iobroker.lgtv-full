@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "news": {
+      "1.0.7": {
+        "en": "Push subscriptions for picture/sound mode changes, polling fallback every 60s",
+        "pl": "Subskrypcje push dla zmian trybu obrazu/dźwięku, polling co 60s jako zabezpieczenie"
+      },
       "1.0.6": {
         "en": "Fix: expert1/expert2 picture modes, auto-polling every 30s for picture/sound updates",
         "pl": "Poprawka: tryby expert1/expert2, automatyczne odświeżanie ustawień obrazu/dźwięku co 30s"
