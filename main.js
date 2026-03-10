@@ -426,35 +426,14 @@ class LgtvFullAdapter extends utils.Adapter {
             if (s.sharpness   !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),      true);
         };
 
-        const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'];
+        // Uwaga: oledLight jest niedozwolony jako klucz filtra na LG G4 — używamy backlight
+        const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
 
-        // webOS 6+ (G4 i nowsze) wymaga ssap://com.webos.service.settings — spróbuj najpierw
-        this.tv.request('ssap://com.webos.service.settings/getSystemSettings',
+        this.tv.request('ssap://settings/getSystemSettings',
             { category: 'picture', keys: KEYS },
             (err, res) => {
                 if (!err && res && res.settings) { applySettings(res.settings); return; }
-                this.log.debug(`com.webos.service.settings picture: ${err ? err.message : 'brak settings'} — próba ssap://settings`);
-
-                // Fallback: stary URI
-                this.tv.request('ssap://settings/getSystemSettings',
-                    { category: 'picture', keys: KEYS },
-                    (err2, res2) => {
-                        if (!err2 && res2 && res2.settings) { applySettings(res2.settings); return; }
-                        this.log.debug(`ssap://settings picture: ${err2 ? err2.message : 'brak settings'} — próba bez keys`);
-
-                        // Ostatnia próba: bez filtrowania kluczy
-                        this.tv.request('ssap://settings/getSystemSettings',
-                            { category: 'picture' },
-                            (err3, res3) => {
-                                if (err3) {
-                                    this.log.warn(`getSystemSettings picture: 401 insufficient permissions. Usuń plik klucza i sparuj TV ponownie!`);
-                                    return;
-                                }
-                                applySettings(res3 && res3.settings);
-                            }
-                        );
-                    }
-                );
+                this.log.debug(`getSystemSettings picture error: ${err ? err.message : 'brak settings'}`);
             }
         );
     }
