@@ -183,8 +183,10 @@ const PICTURE_MODES = {
     'vivid': 'Vivid', 'standard': 'Standard', 'eco': 'Eco / APS',
     'cinema': 'Cinema', 'sport': 'Sport', 'game': 'Game',
     'filmMaker': 'Filmmaker Mode',
-    'hdrStandard': 'HDR Standard', 'hdrCinema': 'HDR Cinema',
+    'expert1': 'Expert (Bright Room)', 'expert2': 'Expert (Dark Room)',
+    'hdrVivid': 'HDR Vivid', 'hdrStandard': 'HDR Standard', 'hdrCinema': 'HDR Cinema',
     'hdrFilmMaker': 'HDR Filmmaker', 'hdrGame': 'HDR Game', 'hdrSport': 'HDR Sport',
+    'hdrCinemaHome': 'HDR Cinema Home',
     'dolbyHdrVivid': 'Dolby Vision Vivid', 'dolbyHdrStandard': 'Dolby Vision Standard',
     'dolbyHdrCinema': 'Dolby Vision Cinema', 'dolbyHdrCinemaBright': 'Dolby Vision Cinema Bright',
     'dolbyHdrFilmMaker': 'Dolby Vision Filmmaker', 'dolbyHdrGame': 'Dolby Vision Game',
@@ -225,6 +227,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.inputSocket = null;
         this.connected   = false;
         this.reconnTimer = null;
+        this.pollTimer   = null;
         this.inputs      = {};
         this.channels    = [];
 
@@ -324,12 +327,21 @@ class LgtvFullAdapter extends utils.Adapter {
             this.requestSoundSettings();
             this.requestInputList();
             this.requestChannelList();
+            // Polling co 30s — bo getSystemSettings nie obsługuje subskrypcji
+            if (this.pollTimer) clearInterval(this.pollTimer);
+            this.pollTimer = setInterval(() => {
+                if (this.connected) {
+                    this.requestPictureSettings();
+                    this.requestSoundSettings();
+                }
+            }, 30000);
         });
 
         this.tv.on('close', () => {
             this.log.info('Rozłączono od LG TV');
             this.connected   = false;
             this.inputSocket = null;
+            if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
             this.setStateAsync('info.connection', false, true);
             this.setStateAsync('power', false, true);
             const sec = parseInt(this.config.reconnectInterval) || 10;
@@ -578,6 +590,7 @@ class LgtvFullAdapter extends utils.Adapter {
     onUnload(callback) {
         try {
             if (this.reconnTimer) clearTimeout(this.reconnTimer);
+            if (this.pollTimer)   clearInterval(this.pollTimer);
             if (this.tv)          this.tv.disconnect();
         } catch (e) { this.log.error(e); }
         callback();
