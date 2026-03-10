@@ -1,0 +1,6 @@
+{
+  "lgtv-full": {
+    "meta": "https://raw.githubusercontent.com/KPIotr89/iobroker.lgtv-full/main/io-package.json",
+    "type": "media"
+  }
+}

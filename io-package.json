@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "news": {
+      "1.0.4": {
+        "en": "Fix: webOS 6+ volume format (volumeStatus), oledLight support, debug logging",
+        "pl": "Poprawka: format głośności webOS 6+, oledLight, logowanie debug"
+      },
+      "1.0.3": {
+        "en": "Fix: custom WebSocket implementation, WSS port 3001 for webOS 6+",
+        "pl": "Poprawka: własny WebSocket, WSS port 3001 dla webOS 6+"
+      },
       "1.0.0": {
         "en": "Initial release — full LG WebOS TV support",
         "pl": "Pierwsza wersja — pełna obsługa LG WebOS TV"
@@ -17,19 +25,17 @@
       "en": "Full-featured LG WebOS TV adapter: Picture Mode, Sound Mode, inputs, channels, remote control, WoL",
       "pl": "Rozbudowany adapter LG WebOS TV: tryby obrazu, dźwięku, wejścia, kanały, pilot, WoL"
     },
-    "authors": ["Custom Adapter"],
+    "authors": ["KPIotr89"],
     "keywords": ["lg", "webos", "tv", "oled", "smart tv", "lgtv"],
     "platform": "Javascript/Node.js",
     "main": "main.js",
+    "readme": "https://github.com/KPIotr89/iobroker.lgtv-full/blob/main/README.md",
     "enabled": true,
     "mode": "daemon",
     "type": "media",
     "compact": true,
     "connectionType": "local",
     "dataSource": "push",
-    "adminUI": {
-      "config": "json"
-    },
     "dependencies": [
       { "js-controller": ">=3.0.0" }
     ],
