@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "news": {
+      "1.2.1": {
+        "en": "Fix: crash on startup — setStateAsync override incompatible with adapter-core, replaced with _set() helper",
+        "pl": "Poprawka: crash przy starcie — override setStateAsync niekompatybilny z adapter-core, zastąpiony helprem _set()"
+      },
       "1.2.0": {
         "en": "Feature: built-in MQTT client — configure broker host, port, credentials and topic prefix directly in adapter settings; all states published automatically, commands received via {prefix}/set/#",
         "pl": "Nowość: wbudowany klient MQTT — konfiguracja brokera (host, port, login, hasło, prefiks) bezpośrednio w ustawieniach adaptera; stany publikowane automatycznie, komendy przez {prefix}/set/#"

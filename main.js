@@ -282,28 +282,21 @@ class LgtvFullAdapter extends utils.Adapter {
         this.on('unload',      this.onUnload.bind(this));
     }
 
-    /**
-     * Override setStateAsync to automatically publish every acknowledged
-     * state change to MQTT (when the broker is enabled and connected).
-     */
-    async setStateAsync(id, val, ack) {
-        await super.setStateAsync(id, val, ack);
-        // Publish to MQTT only for acknowledged (read) values — skip internal ack=false writes
-        if (ack && this.config.mqttEnabled) {
-            // Strip instance prefix if present (e.g. "lgtv-full.0.picture.mode" → "picture.mode")
-            const key = id.includes('.') && id.split('.')[0] === this.name
-                ? id.split('.').slice(2).join('.')
-                : id;
-            this.mqttPublish(key, typeof val === 'object' && val !== null ? val.val : val);
-        }
-    }
-
     async onReady() {
         this.log.info('Adapter started');
-        await super.setStateAsync('info.connection', false, true);
+        this._set('info.connection', false);
         await this.createAllObjects();
         if (this.config.mqttEnabled) this.connectMqtt();
         this.connect();
+    }
+
+    /**
+     * Set a state with ack=true and publish to MQTT in one call.
+     * All state updates from the TV go through this helper.
+     */
+    _set(id, val) {
+        this.setStateAsync(id, val, true);
+        this.mqttPublish(id, val);
     }
 
     async createAllObjects() {
@@ -386,8 +379,8 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv.on('connect', () => {
             this.log.info('Connected to LG TV!');
             this.connected = true;
-            this.setStateAsync('info.connection', true, true);
-            this.setStateAsync('power', true, true);
+            this._set('info.connection', true);
+            this._set('power', true);
             this.openInputSocket();
             this.subscribeEvents();
             this.requestPictureSettings();
@@ -409,8 +402,8 @@ class LgtvFullAdapter extends utils.Adapter {
             this.connected   = false;
             this.inputSocket = null;
             if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
-            this.setStateAsync('info.connection', false, true);
-            this.setStateAsync('power', false, true);
+            this._set('info.connection', false);
+            this._set('power', false);
             const sec = parseInt(this.config.reconnectInterval) || 10;
             this.reconnTimer = setTimeout(() => this.connect(), sec * 1000);
         });
@@ -440,42 +433,42 @@ class LgtvFullAdapter extends utils.Adapter {
             this.log.debug(`getVolume response: ${JSON.stringify(res)}`);
             // webOS 6+ (LG 2021+) uses volumeStatus instead of direct fields
             if (res.volumeStatus) {
-                if (res.volumeStatus.volume     !== undefined) this.setStateAsync('audio.volume', res.volumeStatus.volume,     true);
-                if (res.volumeStatus.muteStatus !== undefined) this.setStateAsync('audio.mute',   res.volumeStatus.muteStatus, true);
+                if (res.volumeStatus.volume     !== undefined) this._set('audio.volume', res.volumeStatus.volume);
+                if (res.volumeStatus.muteStatus !== undefined) this._set('audio.mute',   res.volumeStatus.muteStatus);
             } else {
-                if (res.volume !== undefined) this.setStateAsync('audio.volume', res.volume, true);
-                if (res.muted  !== undefined) this.setStateAsync('audio.mute',   res.muted,  true);
+                if (res.volume !== undefined) this._set('audio.volume', res.volume);
+                if (res.muted  !== undefined) this._set('audio.mute',   res.muted);
             }
         });
 
         this.tv.subscribe('ssap://com.webos.applicationManager/getForegroundAppInfo', (err, res) => {
             if (err || !res || !res.appId) return;
-            this.setStateAsync('app.current', res.appId, true);
+            this._set('app.current', res.appId);
         });
 
         this.tv.subscribe('ssap://tv/getCurrentChannel', (err, res) => {
             if (err || !res || res.errorCode) return;
-            if (res.channelNumber !== undefined) this.setStateAsync('channel.number', res.channelNumber, true);
-            if (res.channelName   !== undefined) this.setStateAsync('channel.name',   res.channelName,   true);
+            if (res.channelNumber !== undefined) this._set('channel.number', res.channelNumber);
+            if (res.channelName   !== undefined) this._set('channel.name',   res.channelName);
         });
 
         this.tv.subscribe('ssap://com.webos.media/getForegroundAppMediaStatus', (err, res) => {
             if (err || !res) return;
-            if (res.playState !== undefined) this.setStateAsync('media.state', res.playState, true);
+            if (res.playState !== undefined) this._set('media.state', res.playState);
         });
 
         this.tv.subscribe('ssap://audio/getSoundOutput', (err, res) => {
             if (err || !res) return;
             if (res.soundOutput) {
-                this.setStateAsync('audio.soundOutput', res.soundOutput, true);
+                this._set('audio.soundOutput', res.soundOutput);
                 const n = SOUND_OUTPUT_NUM[res.soundOutput];
-                if (n !== undefined) this.setStateAsync('audio.soundOutputNum', n, true);
+                if (n !== undefined) this._set('audio.soundOutputNum', n);
             }
         });
 
         this.tv.subscribe('ssap://com.webos.service.screenSaver/getStatus', (err, res) => {
             if (err || !res) return;
-            this.setStateAsync('screenSaver', res.actived === true || res.screenSaverRunning === true, true);
+            this._set('screenSaver', res.actived === true || res.screenSaverRunning === true);
         });
 
         // Push subscription for picture settings changes
@@ -486,15 +479,15 @@ class LgtvFullAdapter extends utils.Adapter {
                 const s = res.settings;
                 this.log.debug(`Picture push: ${JSON.stringify(s)}`);
                 if (s.pictureMode !== undefined) {
-                    this.setStateAsync('picture.mode', s.pictureMode, true);
+                    this._set('picture.mode', s.pictureMode);
                     const n = PICTURE_MODE_NUM[s.pictureMode];
-                    if (n !== undefined) this.setStateAsync('picture.modeNum', n, true);
+                    if (n !== undefined) this._set('picture.modeNum', n);
                 }
-                if (s.brightness !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
-                if (s.contrast   !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
-                if (s.backlight  !== undefined) this.setStateAsync('picture.backlight',  parseInt(s.backlight),  true);
-                if (s.color      !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
-                if (s.sharpness  !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
+                if (s.brightness !== undefined) this._set('picture.brightness', parseInt(s.brightness));
+                if (s.contrast   !== undefined) this._set('picture.contrast',   parseInt(s.contrast));
+                if (s.backlight  !== undefined) this._set('picture.backlight',  parseInt(s.backlight));
+                if (s.color      !== undefined) this._set('picture.color',      parseInt(s.color));
+                if (s.sharpness  !== undefined) this._set('picture.sharpness',  parseInt(s.sharpness));
             }
         );
 
@@ -506,9 +499,9 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (res.settings.soundMode) {
                     const mode = res.settings.soundMode;
                     this.log.debug(`Sound mode push: ${mode}`);
-                    this.setStateAsync('audio.soundMode', mode, true);
+                    this._set('audio.soundMode', mode);
                     const n = SOUND_MODE_NUM[mode];
-                    if (n !== undefined) this.setStateAsync('audio.soundModeNum', n, true);
+                    if (n !== undefined) this._set('audio.soundModeNum', n);
                 }
             }
         );
@@ -519,17 +512,17 @@ class LgtvFullAdapter extends utils.Adapter {
             if (!s) return;
             this.log.debug(`Picture settings received: ${JSON.stringify(s)}`);
             if (s.pictureMode !== undefined) {
-                this.setStateAsync('picture.mode', s.pictureMode, true);
+                this._set('picture.mode', s.pictureMode);
                 const n = PICTURE_MODE_NUM[s.pictureMode];
-                if (n !== undefined) this.setStateAsync('picture.modeNum', n, true);
+                if (n !== undefined) this._set('picture.modeNum', n);
             }
-            if (s.brightness !== undefined) this.setStateAsync('picture.brightness', parseInt(s.brightness), true);
-            if (s.contrast   !== undefined) this.setStateAsync('picture.contrast',   parseInt(s.contrast),   true);
+            if (s.brightness !== undefined) this._set('picture.brightness', parseInt(s.brightness));
+            if (s.contrast   !== undefined) this._set('picture.contrast',   parseInt(s.contrast));
             // oledLight is not allowed as a filter key on LG G4 — use backlight
             const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
-            if (bl !== undefined)            this.setStateAsync('picture.backlight',  parseInt(bl),           true);
-            if (s.color      !== undefined) this.setStateAsync('picture.color',      parseInt(s.color),      true);
-            if (s.sharpness  !== undefined) this.setStateAsync('picture.sharpness',  parseInt(s.sharpness),  true);
+            if (bl !== undefined)            this._set('picture.backlight',  parseInt(bl));
+            if (s.color      !== undefined) this._set('picture.color',      parseInt(s.color));
+            if (s.sharpness  !== undefined) this._set('picture.sharpness',  parseInt(s.sharpness));
         };
 
         const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
@@ -550,9 +543,9 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (err) { this.log.debug(`getSystemSettings sound error: ${err.message}`); return; }
                 if (res && res.settings && res.settings.soundMode) {
                     const mode = res.settings.soundMode;
-                    this.setStateAsync('audio.soundMode', mode, true);
+                    this._set('audio.soundMode', mode);
                     const n = SOUND_MODE_NUM[mode];
-                    if (n !== undefined) this.setStateAsync('audio.soundModeNum', n, true);
+                    if (n !== undefined) this._set('audio.soundModeNum', n);
                 }
             }
         );
@@ -641,7 +634,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.inputs[d.appId] = d;
             });
             this.extendObject('input.current', { common: { states } });
-            this.setStateAsync('input.list', JSON.stringify(states), true);
+            this._set('input.list', JSON.stringify(states));
             this.log.info(`Inputs: ${Object.values(states).join(', ')}`);
         });
     }
@@ -652,7 +645,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.channels = res.channelList;
             const map = {};
             this.channels.forEach(c => { map[c.channelNumber] = c.channelName; });
-            this.setStateAsync('channel.list', JSON.stringify(map), true);
+            this._set('channel.list', JSON.stringify(map));
             this.log.info(`Channels: ${this.channels.length}`);
         });
     }
@@ -687,25 +680,25 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request(val
                     ? 'ssap://com.webos.service.tv.display/setScreenOff'
                     : 'ssap://com.webos.service.tv.display/setScreenOn');
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 break;
             case 'audio.volume': {
                 const v = Math.max(0, Math.min(100, Math.round(val)));
                 this.tv.request('ssap://audio/setVolume', { volume: v });
-                this.setStateAsync(id, v, true);
+                this._set(key, v);
                 break;
             }
             case 'audio.mute':
                 this.tv.request('ssap://audio/setMute', { mute: !!val });
-                this.setStateAsync(id, !!val, true);
+                this._set(key, !!val);
                 break;
             case 'audio.soundMode': {
                 this._setSoundSetting({ soundMode: val },
                     (err) => { if (err) this.log.warn(`sound mode write error: ${err.message}`); }
                 );
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 const sn = SOUND_MODE_NUM[val];
-                if (sn !== undefined) this.setStateAsync('audio.soundModeNum', sn, true);
+                if (sn !== undefined) this._set('audio.soundModeNum', sn);
                 break;
             }
             case 'audio.soundModeNum': {
@@ -714,21 +707,21 @@ class LgtvFullAdapter extends utils.Adapter {
                     this._setSoundSetting({ soundMode: modeKey },
                         (err) => { if (err) this.log.warn(`sound modeNum write error: ${err.message}`); }
                     );
-                    this.setStateAsync(id, val, true);
-                    this.setStateAsync('audio.soundMode', modeKey, true);
+                    this._set(key, val);
+                    this._set('audio.soundMode', modeKey);
                 }
                 break;
             }
             case 'audio.soundOutput':
                 this.tv.request('ssap://audio/changeSoundOutput', { output: val });
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 break;
             case 'audio.soundOutputNum': {
                 const outputKey = SOUND_OUTPUT_KEYS[val - 1];
                 if (outputKey) {
                     this.tv.request('ssap://audio/changeSoundOutput', { output: outputKey });
-                    this.setStateAsync(id, val, true);
-                    this.setStateAsync('audio.soundOutput', outputKey, true);
+                    this._set(key, val);
+                    this._set('audio.soundOutput', outputKey);
                 }
                 break;
             }
@@ -736,9 +729,9 @@ class LgtvFullAdapter extends utils.Adapter {
                 this._setPictureSetting({ pictureMode: val }, (err) => {
                     if (err) this.log.warn(`picture mode write error: ${err.message}`);
                 });
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 const pn = PICTURE_MODE_NUM[val];
-                if (pn !== undefined) this.setStateAsync('picture.modeNum', pn, true);
+                if (pn !== undefined) this._set('picture.modeNum', pn);
                 break;
             }
             case 'picture.modeNum': {
@@ -747,8 +740,8 @@ class LgtvFullAdapter extends utils.Adapter {
                     this._setPictureSetting({ pictureMode: picKey }, (err) => {
                         if (err) this.log.warn(`picture modeNum write error: ${err.message}`);
                     });
-                    this.setStateAsync(id, val, true);
-                    this.setStateAsync('picture.mode', picKey, true);
+                    this._set(key, val);
+                    this._set('picture.mode', picKey);
                 }
                 break;
             }
@@ -759,22 +752,21 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
                 const rounded = Math.round(val);
-                const settingKey = k; // LG G4 uses 'backlight' (not 'oledLight') for OLED light
-                this._setPictureSetting({ [settingKey]: String(rounded) },
+                this._setPictureSetting({ [k]: String(rounded) },
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
-                this.setStateAsync(id, rounded, true);
+                this._set(key, rounded);
                 break;
             }
             case 'input.current':
                 this.tv.request('ssap://tv/switchInput', { inputId: val });
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 break;
             case 'channel.number': {
                 const ch = this.channels.find(c => c.channelNumber === String(val));
                 if (ch) {
                     this.tv.request('ssap://tv/openChannel', { channelId: ch.channelId });
-                    this.setStateAsync(id, val, true);
+                    this._set(key, val);
                 } else {
                     this.log.warn(`Channel ${val} not found`);
                 }
@@ -782,7 +774,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
             case 'app.launch':
                 this.tv.request('ssap://system.launcher/launch', { id: val });
-                this.setStateAsync(id, val, true);
+                this._set(key, val);
                 break;
             default:
                 if (key.startsWith('remote.')) {
@@ -790,7 +782,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     if (this.inputSocket) {
                         this.inputSocket.send('button', { name: btn });
                         // Reset button back to false after press
-                        setTimeout(() => this.setStateAsync(id, false, true), 300);
+                        setTimeout(() => this._set(key, false), 300);
                     } else {
                         this.log.warn(`Remote socket not ready (${btn})`);
                         this.openInputSocket();
