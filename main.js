@@ -5,14 +5,15 @@
  * Full LG WebOS TV control (OLED G-series and others, webOS 6+)
  * Custom WebSocket implementation — no dependency on lgtv2
  *
- * Dependencies: ws, wake_on_lan, @iobroker/adapter-core
+ * Dependencies: ws, wake_on_lan, mqtt, @iobroker/adapter-core
  */
 
-const utils = require('@iobroker/adapter-core');
-const wol   = require('wake_on_lan');
-const path  = require('path');
-const fs    = require('fs');
+const utils     = require('@iobroker/adapter-core');
+const wol       = require('wake_on_lan');
+const path      = require('path');
+const fs        = require('fs');
 const WebSocket = require('ws');
+const mqtt      = require('mqtt');
 
 // ─── LG WebOS pairing manifest ───────────────────────────────────────────────
 
@@ -272,15 +273,36 @@ class LgtvFullAdapter extends utils.Adapter {
         this.inputs      = {};
         this.channels    = [];
 
+        // MQTT
+        this.mqttClient  = null;
+        this.mqttPrefix  = 'lgtv';
+
         this.on('ready',       this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('unload',      this.onUnload.bind(this));
     }
 
+    /**
+     * Override setStateAsync to automatically publish every acknowledged
+     * state change to MQTT (when the broker is enabled and connected).
+     */
+    async setStateAsync(id, val, ack) {
+        await super.setStateAsync(id, val, ack);
+        // Publish to MQTT only for acknowledged (read) values — skip internal ack=false writes
+        if (ack && this.config.mqttEnabled) {
+            // Strip instance prefix if present (e.g. "lgtv-full.0.picture.mode" → "picture.mode")
+            const key = id.includes('.') && id.split('.')[0] === this.name
+                ? id.split('.').slice(2).join('.')
+                : id;
+            this.mqttPublish(key, typeof val === 'object' && val !== null ? val.val : val);
+        }
+    }
+
     async onReady() {
         this.log.info('Adapter started');
-        await this.setStateAsync('info.connection', false, true);
+        await super.setStateAsync('info.connection', false, true);
         await this.createAllObjects();
+        if (this.config.mqttEnabled) this.connectMqtt();
         this.connect();
     }
 
@@ -536,6 +558,62 @@ class LgtvFullAdapter extends utils.Adapter {
         );
     }
 
+    // ─── MQTT ──────────────────────────────────────────────────────────────────
+
+    connectMqtt() {
+        const cfg    = this.config;
+        this.mqttPrefix = (cfg.mqttTopic || 'lgtv').replace(/\/+$/, '');
+        const url    = `mqtt://${cfg.mqttHost || 'localhost'}:${cfg.mqttPort || 1883}`;
+        const opts   = { clientId: `iobroker-lgtv-${this.instance}`, clean: true };
+        if (cfg.mqttUser)     opts.username = cfg.mqttUser;
+        if (cfg.mqttPassword) opts.password = cfg.mqttPassword;
+
+        this.log.info(`MQTT: connecting to ${url} (prefix: ${this.mqttPrefix})`);
+        this.mqttClient = mqtt.connect(url, opts);
+
+        this.mqttClient.on('connect', () => {
+            this.log.info('MQTT: connected');
+            // Subscribe to all set/# commands
+            this.mqttClient.subscribe(`${this.mqttPrefix}/set/#`, (err) => {
+                if (err) this.log.warn(`MQTT subscribe error: ${err.message}`);
+                else     this.log.info(`MQTT: subscribed to ${this.mqttPrefix}/set/#`);
+            });
+        });
+
+        this.mqttClient.on('message', (topic, message) => {
+            const setPrefix = `${this.mqttPrefix}/set/`;
+            if (!topic.startsWith(setPrefix)) return;
+            const stateKey = topic.slice(setPrefix.length).replace(/\//g, '.');
+            const raw      = message.toString();
+            let val;
+            // Auto-parse booleans and numbers
+            if (raw === 'true')       val = true;
+            else if (raw === 'false') val = false;
+            else if (!isNaN(raw) && raw.trim() !== '') val = Number(raw);
+            else val = raw;
+
+            this.log.debug(`MQTT cmd: ${stateKey} = ${val}`);
+            this.setStateAsync(stateKey, val, false).catch(() => {
+                this.log.warn(`MQTT: unknown state "${stateKey}"`);
+            });
+        });
+
+        this.mqttClient.on('error',   (e) => this.log.warn(`MQTT error: ${e.message}`));
+        this.mqttClient.on('offline', ()  => this.log.info('MQTT: offline'));
+        this.mqttClient.on('reconnect', () => this.log.debug('MQTT: reconnecting…'));
+    }
+
+    /**
+     * Publish a value to MQTT.
+     * Topic: {prefix}/state/{key}  e.g. lgtv/state/picture/mode
+     */
+    mqttPublish(stateKey, val) {
+        if (!this.mqttClient || !this.mqttClient.connected) return;
+        const topic   = `${this.mqttPrefix}/state/${stateKey.replace(/\./g, '/')}`;
+        const payload = val === null || val === undefined ? '' : String(val);
+        this.mqttClient.publish(topic, payload, { retain: true });
+    }
+
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */
     _setPictureSetting(settings, cb) {
         this.tv.request('ssap://settings/setSystemSettings',
@@ -726,6 +804,7 @@ class LgtvFullAdapter extends utils.Adapter {
             if (this.reconnTimer) clearTimeout(this.reconnTimer);
             if (this.pollTimer)   clearInterval(this.pollTimer);
             if (this.tv)          this.tv.disconnect();
+            if (this.mqttClient)  this.mqttClient.end();
         } catch (e) { this.log.error(e); }
         callback();
     }

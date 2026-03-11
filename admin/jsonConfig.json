@@ -1,6 +1,10 @@
 {
   "type": "panel",
   "items": {
+    "_tvHeader": {
+      "type": "header",
+      "text": "TV Connection"
+    },
     "host": {
       "type": "text",
       "label": "TV IP Address",
@@ -13,7 +17,7 @@
     "macAddress": {
       "type": "text",
       "label": "MAC Address (for Wake-on-LAN)",
-      "help": "Required to turn on TV over network. Find it in TV Settings → Network → Wired/Wi-Fi Connection → Advanced. Format: AA:BB:CC:DD:EE:FF",
+      "help": "Required to turn on TV over network. Find it in TV Settings → Network → Advanced. Format: AA:BB:CC:DD:EE:FF",
       "sm": 12,
       "md": 6
     },
@@ -26,6 +30,60 @@
       "default": 10,
       "sm": 12,
       "md": 4
+    },
+    "_mqttHeader": {
+      "type": "header",
+      "text": "MQTT Integration (optional)"
+    },
+    "mqttEnabled": {
+      "type": "checkbox",
+      "label": "Enable MQTT client",
+      "help": "Publish TV states to an MQTT broker and receive commands from it",
+      "default": false,
+      "sm": 12,
+      "md": 12
+    },
+    "mqttHost": {
+      "type": "text",
+      "label": "MQTT Broker Host",
+      "help": "IP address or hostname of the MQTT broker (e.g. 192.168.1.10 or localhost)",
+      "default": "192.168.1.10",
+      "hidden": "!data.mqttEnabled",
+      "sm": 12,
+      "md": 6
+    },
+    "mqttPort": {
+      "type": "number",
+      "label": "MQTT Broker Port",
+      "default": 1883,
+      "min": 1,
+      "max": 65535,
+      "hidden": "!data.mqttEnabled",
+      "sm": 12,
+      "md": 3
+    },
+    "mqttTopic": {
+      "type": "text",
+      "label": "Topic prefix",
+      "help": "Base topic for all states. States are published as {prefix}/state/NAME, commands received on {prefix}/set/NAME",
+      "default": "lgtv",
+      "hidden": "!data.mqttEnabled",
+      "sm": 12,
+      "md": 3
+    },
+    "mqttUser": {
+      "type": "text",
+      "label": "Username (optional)",
+      "hidden": "!data.mqttEnabled",
+      "sm": 12,
+      "md": 6
+    },
+    "mqttPassword": {
+      "type": "password",
+      "label": "Password (optional)",
+      "hidden": "!data.mqttEnabled",
+      "sm": 12,
+      "md": 6
     }
   }
 }

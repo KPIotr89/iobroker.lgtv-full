@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.1.6",
+    "version": "1.2.0",
     "news": {
+      "1.2.0": {
+        "en": "Feature: built-in MQTT client — configure broker host, port, credentials and topic prefix directly in adapter settings; all states published automatically, commands received via {prefix}/set/#",
+        "pl": "Nowość: wbudowany klient MQTT — konfiguracja brokera (host, port, login, hasło, prefiks) bezpośrednio w ustawieniach adaptera; stany publikowane automatycznie, komendy przez {prefix}/set/#"
+      },
       "1.1.6": {
         "en": "Fix: use real LG-signed RSA manifest from lgtv2 — TV now validates signature and grants WRITE_SETTINGS, enabling picture/sound mode writes via SSAP",
         "pl": "Poprawka: prawdziwy manifest RSA podpisany przez LG — TV weryfikuje podpis i przyznaje WRITE_SETTINGS, zapis trybu obrazu/dźwięku przez SSAP działa"
