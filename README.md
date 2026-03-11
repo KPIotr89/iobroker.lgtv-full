@@ -255,22 +255,63 @@ audio.soundOutput = "external_arc" ←→ audio.soundOutputNum = 2
 
 ---
 
-## 🔗 MQTT / Loxone Integration
+## 🔗 Built-in MQTT Client
 
-Install the **ioBroker.mqtt** adapter as a client connecting to a Mosquitto broker (e.g. on LoxBerry).
+Since v1.2.0 the adapter includes a **built-in MQTT client** — no separate ioBroker MQTT adapter needed.
 
-Example: forward the picture mode number to an MQTT topic using a Blockly / JavaScript rule:
+### Configuration
 
-```javascript
-// Forward picture mode number to MQTT whenever it changes
-on({ id: 'lgtv-full.0.picture.modeNum', change: 'any' }, (obj) => {
-    setState('mqtt.0.send.lgtv/pictureMode', obj.state.val);
-});
+Open the adapter instance settings and fill in the **MQTT Integration** section:
 
-// Change picture mode from MQTT (receive a number)
-on({ id: 'mqtt.0.receive.lgtv/setPictureMode', change: 'any' }, (obj) => {
-    setState('lgtv-full.0.picture.modeNum', Number(obj.state.val));
-});
+| Field | Default | Description |
+|-------|---------|-------------|
+| Enable MQTT client | off | Toggle to activate |
+| Broker Host | — | IP or hostname of your MQTT broker (e.g. `192.168.1.10`) |
+| Broker Port | `1883` | Standard MQTT port |
+| Topic prefix | `lgtv` | Base topic for all messages |
+| Username | — | Optional broker authentication |
+| Password | — | Optional broker authentication |
+
+All MQTT fields are hidden when the client is disabled.
+
+### Topic structure
+
+| Direction | Topic pattern | Example |
+|-----------|---------------|---------|
+| **TV → broker** (publish) | `{prefix}/state/{name}` | `lgtv/state/picture/mode` → `cinema` |
+| **Broker → TV** (subscribe) | `{prefix}/set/{name}` | `lgtv/set/picture/mode` ← `filmMaker` |
+
+All published values use `/` as separator and are **retained** on the broker, so a newly connected client always gets the current state immediately.
+
+### Example topics
+
+```
+lgtv/state/info/connection       → true / false
+lgtv/state/audio/volume          → 45
+lgtv/state/audio/soundMode       → cinema
+lgtv/state/audio/soundModeNum    → 3
+lgtv/state/picture/mode          → filmMaker
+lgtv/state/picture/modeNum       → 7
+lgtv/state/picture/backlight     → 30
+lgtv/state/input/current         → HDMI_1
+
+lgtv/set/audio/volume            ← 50
+lgtv/set/picture/mode            ← cinema
+lgtv/set/picture/modeNum         ← 4
+lgtv/set/picture/backlight       ← 60
+lgtv/set/audio/soundMode         ← aiSoundPro
+lgtv/set/power                   ← true / false
+```
+
+### Loxone / LoxBerry integration
+
+Point the adapter to your Mosquitto broker running on LoxBerry. In Loxone Config, create **Virtual Inputs** and **Virtual Outputs** mapped to the topics above — no scripting required.
+
+For systems that prefer numbers, use the `Num` variants:
+```
+picture.modeNum    1–22   (see picture modes table)
+audio.soundModeNum 1–7
+audio.soundOutputNum 1–7
 ```
 
 ---
@@ -331,6 +372,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 ---
 
 ## 📝 Changelog
+
+### 1.2.0
+- **Feature:** Built-in MQTT client — configure broker host, port, credentials and topic prefix directly in adapter settings
+- All states published automatically to `{prefix}/state/{name}` with `retain: true`
+- Commands received on `{prefix}/set/{name}` — supports strings, numbers and booleans
+- No separate ioBroker MQTT adapter required
 
 ### 1.1.6
 - **Fix:** Use the real LG-signed RSA manifest from lgtv2 — TV now validates the signature and grants `WRITE_SETTINGS`, enabling write operations for picture and sound settings via SSAP
