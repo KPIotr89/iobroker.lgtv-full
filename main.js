@@ -681,8 +681,7 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
                 const rounded = Math.round(val);
-                // LG OLED TVs use 'oledLight' key for backlight
-                const settingKey = k === 'backlight' ? 'oledLight' : k;
+                const settingKey = k; // LG G4 uses 'backlight' (not 'oledLight') for OLED light
                 this._setPictureSetting({ [settingKey]: String(rounded) },
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
