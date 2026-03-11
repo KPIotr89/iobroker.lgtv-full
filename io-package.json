@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "news": {
+      "1.2.2": {
+        "en": "Fix: subscription errors now handled gracefully; remote control tries alternate pointer service path on webOS 6+, falls back to SSAP ssap://input/sendButton; suppress noisy 404 warn to debug",
+        "pl": "Poprawka: błędy subskrypcji obsługiwane bez ostrzeżeń; pilot szuka alternatywnej ścieżki usługi na webOS 6+, fallback na SSAP; usunięto hałaśliwy warn 404"
+      },
       "1.2.1": {
         "en": "Fix: crash on startup — setStateAsync override incompatible with adapter-core, replaced with _set() helper",
         "pl": "Poprawka: crash przy starcie — override setStateAsync niekompatybilny z adapter-core, zastąpiony helprem _set()"

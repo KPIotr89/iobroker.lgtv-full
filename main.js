@@ -143,11 +143,16 @@ class LgTvSocket {
                 if (msg.id === 'register0') {
                     this._onPrompt();
                 } else {
-                    // Handle errors for pending callbacks
+                    // Handle errors for pending one-shot request callbacks
                     const cb = this.pending[msg.id];
                     if (cb) {
                         delete this.pending[msg.id];
                         cb(new Error(msg.error || JSON.stringify(msg)), null);
+                    } else {
+                        // Subscription initial error — notify the subscription callback so it
+                        // can handle it gracefully (callbacks check `if (err) return` and exit).
+                        const scb = this.subs[msg.id];
+                        if (scb) scb(new Error(msg.error || JSON.stringify(msg.payload || msg)), null);
                     }
                 }
 
@@ -420,11 +425,31 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     openInputSocket() {
-        this.tv.getSocket('ssap://com.webos.service.networkinput/getPointerInputService', (err, sock) => {
-            if (err) { this.log.warn(`Remote socket error: ${err}`); return; }
-            this.inputSocket = sock;
-            this.log.debug('Remote control socket opened');
-        });
+        // webOS 3–5 uses networkinput; webOS 6+ (G-series) may expose tv.input instead.
+        // Try both paths silently; remote buttons fall back to SSAP if neither works.
+        const PATHS = [
+            'ssap://com.webos.service.networkinput/getPointerInputService',
+            'ssap://com.webos.service.tv.input/getPointerInputService',
+        ];
+        let idx = 0;
+        const tryNext = () => {
+            if (idx >= PATHS.length) {
+                this.log.debug('Pointer input service not available on this TV — remote keys use SSAP fallback');
+                return;
+            }
+            const uri = PATHS[idx++];
+            this.tv.request(uri, (err, res) => {
+                if (err || !res || !res.socketPath) { tryNext(); return; }
+                const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
+                sock.on('open',  ()  => {
+                    this.inputSocket = { send: (type, p) => sock.send(JSON.stringify({ type, ...p })) };
+                    this.log.debug('Remote control pointer socket opened');
+                });
+                sock.on('error', (e) => this.log.debug(`Pointer socket: ${e.message || e}`));
+                sock.on('close', ()  => { this.inputSocket = null; });
+            });
+        };
+        tryNext();
     }
 
     subscribeEvents() {
@@ -780,13 +805,16 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (key.startsWith('remote.')) {
                     const btn = key.replace('remote.', '');
                     if (this.inputSocket) {
+                        // Primary: pointer socket (most reliable, supports all buttons)
                         this.inputSocket.send('button', { name: btn });
-                        // Reset button back to false after press
-                        setTimeout(() => this._set(key, false), 300);
                     } else {
-                        this.log.warn(`Remote socket not ready (${btn})`);
-                        this.openInputSocket();
+                        // Fallback: direct SSAP button event (works on most webOS 6+ models)
+                        this.tv.request('ssap://input/sendButton', { name: btn }, (err) => {
+                            if (err) this.log.debug(`Remote button ${btn} SSAP fallback: ${err.message || err}`);
+                        });
                     }
+                    // Always reset button state to false so it can be pressed again
+                    setTimeout(() => this._set(key, false), 300);
                 }
         }
     }
