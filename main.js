@@ -71,14 +71,15 @@ const LG_MANIFEST = {
 
 class LgTvSocket {
     constructor(config) {
-        this.url      = config.url;
-        this.keyFile  = config.keyFile;
-        this.timeout  = config.timeout || 5000;
-        this.ws       = null;
-        this.msgId    = 0;
-        this.pending  = {};   // id → callback (one-shot requests)
-        this.subs     = {};   // id → callback (subscriptions)
+        this.url       = config.url;
+        this.keyFile   = config.keyFile;
+        this.timeout   = config.timeout || 5000;
+        this.ws        = null;
+        this.msgId     = 0;
+        this.pending   = {};   // id → callback (one-shot requests)
+        this.subs      = {};   // id → callback (subscriptions)
         this.clientKey = null;
+        this._pingTimer = null;
 
         this._onConnect = () => {};
         this._onClose   = () => {};
@@ -137,6 +138,7 @@ class LgTvSocket {
                         fs.writeFileSync(this.keyFile, this.clientKey, 'utf8');
                     } catch (e) { /* ignore write errors */ }
                 }
+                this._startHeartbeat();
                 this._onConnect();
 
             } else if (msg.type === 'error') {
@@ -167,8 +169,8 @@ class LgTvSocket {
             }
         });
 
-        this.ws.on('close',  ()  => { clearTimeout(timer); this._onClose(); });
-        this.ws.on('error',  (e) => { clearTimeout(timer); this._onError(e); });
+        this.ws.on('close',  ()  => { clearTimeout(timer); this._stopHeartbeat(); this._onClose(); });
+        this.ws.on('error',  (e) => { clearTimeout(timer); this._stopHeartbeat(); this._onError(e); });
     }
 
     request(uri, payload, cb) {
@@ -197,7 +199,21 @@ class LgTvSocket {
         });
     }
 
+    _startHeartbeat(intervalMs = 30000) {
+        this._stopHeartbeat();
+        this._pingTimer = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.ping();
+            }
+        }, intervalMs);
+    }
+
+    _stopHeartbeat() {
+        if (this._pingTimer) { clearInterval(this._pingTimer); this._pingTimer = null; }
+    }
+
     disconnect() {
+        this._stopHeartbeat();
         if (this.ws) { try { this.ws.close(); } catch (e) {} }
     }
 
@@ -270,13 +286,14 @@ class LgtvFullAdapter extends utils.Adapter {
 
     constructor(options) {
         super({ ...options, name: 'lgtv-full' });
-        this.tv          = null;
-        this.inputSocket = null;
-        this.connected   = false;
-        this.reconnTimer = null;
-        this.pollTimer   = null;
-        this.inputs      = {};
-        this.channels    = [];
+        this.tv           = null;
+        this.inputSocket  = null;
+        this.connected    = false;
+        this.wasConnected = false;   // true only after at least one successful connection
+        this.reconnTimer  = null;
+        this.pollTimer    = null;
+        this.inputs       = {};
+        this.channels     = [];
 
         // MQTT
         this.mqttClient  = null;
@@ -383,7 +400,8 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.tv.on('connect', () => {
             this.log.info('Connected to LG TV!');
-            this.connected = true;
+            this.connected    = true;
+            this.wasConnected = true;
             this._set('info.connection', true);
             this._set('power', true);
             this.openInputSocket();
@@ -403,18 +421,34 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('close', () => {
-            this.log.info('Disconnected from LG TV');
+            const sec = parseInt(this.config.reconnectInterval) || 10;
+            if (this.wasConnected) {
+                // We had a real connection — TV turned off or network dropped
+                this.log.info('Disconnected from LG TV');
+                this.wasConnected = false;
+                this._set('power', false);
+            } else {
+                // Failed reconnect attempt while TV is off — don't touch power state
+                // so the user's WoL command (power=true) isn't overwritten
+                this.log.debug(`TV not reachable — retry in ${sec}s`);
+            }
             this.connected   = false;
             this.inputSocket = null;
             if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
             this._set('info.connection', false);
-            this._set('power', false);
-            const sec = parseInt(this.config.reconnectInterval) || 10;
             this.reconnTimer = setTimeout(() => this.connect(), sec * 1000);
         });
 
         this.tv.on('error', (err) => {
-            this.log.error(`Connection error: ${err && err.message ? err.message : err}`);
+            // ECONNREFUSED / ETIMEDOUT / EHOSTUNREACH are expected when the TV is off —
+            // log at debug to avoid flooding ioBroker with red error entries.
+            const EXPECTED = ['ECONNREFUSED', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENOTFOUND', 'ECONNRESET'];
+            const code = err && err.code;
+            if (EXPECTED.includes(code)) {
+                this.log.debug(`TV unreachable (${code}) — will retry in ${parseInt(this.config.reconnectInterval) || 10}s`);
+            } else {
+                this.log.warn(`Connection error: ${err && err.message ? err.message : err}`);
+            }
         });
 
         this.tv.on('prompt', () => {

@@ -1,8 +1,20 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.2",
+    "version": "1.2.5",
     "news": {
+      "1.2.5": {
+        "en": "Feature: WebSocket heartbeat ping every 30s — keeps connection alive during TV standby (screen off but OS running), just like homebridge-lgwebos-tv",
+        "pl": "Nowość: heartbeat ping WebSocket co 30s — utrzymuje połączenie w trybie standby TV (ekran wyłączony, OS działa), tak jak homebridge-lgwebos-tv"
+      },
+      "1.2.4": {
+        "en": "Fix: power=false no longer overwritten by failed reconnect attempts — WoL (power=true) stays active until TV actually connects",
+        "pl": "Poprawka: power=false nie nadpisywane przez nieudane próby reconnect — WoL (power=true) pozostaje aktywny aż TV faktycznie się połączy"
+      },
+      "1.2.3": {
+        "en": "Fix: connection errors when TV is off (ECONNREFUSED/ETIMEDOUT) now logged at debug level instead of error — no more red entries in ioBroker log during standby",
+        "pl": "Poprawka: błędy połączenia gdy TV jest wyłączony (ECONNREFUSED/ETIMEDOUT) logowane jako debug zamiast error — koniec czerwonych wpisów w logach ioBroker podczas standby"
+      },
       "1.2.2": {
         "en": "Fix: subscription errors now handled gracefully; remote control tries alternate pointer service path on webOS 6+, falls back to SSAP ssap://input/sendButton; suppress noisy 404 warn to debug",
         "pl": "Poprawka: błędy subskrypcji obsługiwane bez ostrzeżeń; pilot szuka alternatywnej ścieżki usługi na webOS 6+, fallback na SSAP; usunięto hałaśliwy warn 404"
