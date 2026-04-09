@@ -440,13 +440,12 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('error', (err) => {
-            // ECONNREFUSED / ETIMEDOUT / EHOSTUNREACH are expected when the TV is off —
-            // log at debug to avoid flooding ioBroker with red error entries.
-            const EXPECTED = ['ECONNREFUSED', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENOTFOUND', 'ECONNRESET'];
-            const code = err && err.code;
-            if (EXPECTED.includes(code)) {
-                this.log.debug(`TV unreachable (${code}) — will retry in ${parseInt(this.config.reconnectInterval) || 10}s`);
+            if (!this.connected) {
+                // Any error during a connection attempt (TV off, standby, WebSocket rejected) —
+                // log at debug only, on('close') already handles the retry logic
+                this.log.debug(`TV connection attempt failed: ${err && err.message ? err.message : err}`);
             } else {
+                // Error on an established connection — worth showing
                 this.log.warn(`Connection error: ${err && err.message ? err.message : err}`);
             }
         });

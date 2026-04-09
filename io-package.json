@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.5",
+    "version": "1.2.6",
     "news": {
+      "1.2.6": {
+        "en": "Fix: all connection errors when TV is off/standby now logged at debug level only — no more red entries regardless of error type (ECONNREFUSED, ETIMEDOUT, WebSocket closed, etc.)",
+        "pl": "Poprawka: wszystkie błędy połączenia gdy TV wyłączony/standby logowane jako debug — koniec czerwonych wpisów niezależnie od rodzaju błędu"
+      },
       "1.2.5": {
         "en": "Feature: WebSocket heartbeat ping every 30s — keeps connection alive during TV standby (screen off but OS running), just like homebridge-lgwebos-tv",
         "pl": "Nowość: heartbeat ping WebSocket co 30s — utrzymuje połączenie w trybie standby TV (ekran wyłączony, OS działa), tak jak homebridge-lgwebos-tv"
