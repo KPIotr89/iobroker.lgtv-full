@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "news": {
+      "1.2.7": {
+        "en": "Fix: 'Connecting to TV' log shown at info only on first attempt — reconnect retries are silent (debug only)",
+        "pl": "Poprawka: 'Connecting to TV' logowane jako info tylko przy pierwszej próbie — kolejne reconnecty są ciche (debug)"
+      },
       "1.2.6": {
         "en": "Fix: all connection errors when TV is off/standby now logged at debug level only — no more red entries regardless of error type (ECONNREFUSED, ETIMEDOUT, WebSocket closed, etc.)",
         "pl": "Poprawka: wszystkie błędy połączenia gdy TV wyłączony/standby logowane jako debug — koniec czerwonych wpisów niezależnie od rodzaju błędu"

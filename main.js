@@ -393,15 +393,22 @@ class LgtvFullAdapter extends utils.Adapter {
         const proto   = useSSL ? 'wss' : 'ws';
         const url     = `${proto}://${this.config.host}:${port}`;
 
-        this.log.info(`Connecting to TV: ${url}`);
+        // Only log at info on the very first attempt; reconnect attempts are debug-only
+        if (!this.wasConnected && !this._connectAttempts) {
+            this.log.info(`Connecting to TV: ${url}`);
+        } else {
+            this.log.debug(`Reconnecting to TV: ${url}`);
+        }
+        this._connectAttempts = (this._connectAttempts || 0) + 1;
 
         this.tv = new LgTvSocket({ url, keyFile, timeout: 5000 });
         this.tv._logger = (msg) => this.log.debug(msg);
 
         this.tv.on('connect', () => {
             this.log.info('Connected to LG TV!');
-            this.connected    = true;
-            this.wasConnected = true;
+            this.connected       = true;
+            this.wasConnected    = true;
+            this._connectAttempts = 0;  // reset so next disconnect logs at info again
             this._set('info.connection', true);
             this._set('power', true);
             this.openInputSocket();
