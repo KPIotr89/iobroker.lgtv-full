@@ -162,10 +162,36 @@ class LgTvSocket {
                 const cb = this.pending[msg.id] || this.subs[msg.id];
                 if (cb) {
                     if (msg.type === 'response') delete this.pending[msg.id];
-                    const err = (msg.payload && msg.payload.returnValue === false)
-                        ? new Error(msg.payload.errorText || 'TV error') : null;
+                    // returnValue can be boolean false OR string "False" in newer webOS versions
+                    const rv = msg.payload && msg.payload.returnValue;
+                    const err = (rv === false || rv === 'False' || rv === 'false')
+                        ? new Error(msg.payload.errorText || msg.payload.errorCode || 'TV error') : null;
                     cb(err, msg.payload || {});
+                } else {
+                    // No matching callback — TV probably sent an unsolicited ACK after webOS update
+                    if (this._logger) this._logger(`TV→ unmatched ${msg.type} id="${msg.id || '-'}" (no callback)`);
                 }
+
+            } else if (msg.type === 'ok') {
+                // webOS 24+ sends type:"ok" as an additional acknowledgment after some commands
+                // Treat it like a registered/success confirmation when it's for register0
+                if (msg.id === 'register0') {
+                    this._startHeartbeat();
+                    this._onConnect();
+                } else {
+                    // Resolve any pending one-shot request waiting on this id
+                    const cb = this.pending[msg.id];
+                    if (cb) {
+                        delete this.pending[msg.id];
+                        cb(null, msg.payload || {});
+                    } else if (this._logger) {
+                        this._logger(`TV→ type:ok id="${msg.id || '-'}" (no pending callback)`);
+                    }
+                }
+
+            } else {
+                // Completely unknown message type — log at debug level for diagnostics
+                if (this._logger) this._logger(`TV→ unhandled type:"${msg.type}" id="${msg.id || '-'}"`);
             }
         });
 
@@ -301,6 +327,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.on('ready',       this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
+        this.on('message',     this.onMessage.bind(this));
         this.on('unload',      this.onUnload.bind(this));
     }
 
@@ -857,6 +884,18 @@ class LgtvFullAdapter extends utils.Adapter {
                     setTimeout(() => this._set(key, false), 300);
                 }
         }
+    }
+
+    /**
+     * Handle ioBroker inter-adapter messages (sendTo calls).
+     * Without this handler, the adapter-core base class logs "unknown message <command>"
+     * for every message it receives — which shows up in the ioBroker log.
+     */
+    onMessage(obj) {
+        if (!obj || !obj.command) return;
+        this.log.debug(`Message received: ${obj.command}`);
+        // Acknowledge the message so the sender doesn't wait/retry
+        if (obj.callback) this.sendTo(obj.from, obj.command, { result: 'ok' }, obj.callback);
     }
 
     onUnload(callback) {

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.7",
+    "version": "1.2.8",
     "news": {
+      "1.2.8": {
+        "en": "Fix: handle webOS 24+ type:'ok' acknowledgment messages; add onMessage handler to suppress 'unknown message' warnings in ioBroker log; improved returnValue parsing (string 'False' support)",
+        "pl": "Poprawka: obsługa nowych wiadomości type:'ok' z webOS 24+; handler onMessage eliminuje ostrzeżenia 'unknown message' w logu ioBroker; lepsza obsługa returnValue (string 'False')"
+      },
       "1.2.7": {
         "en": "Fix: 'Connecting to TV' log shown at info only on first attempt — reconnect retries are silent (debug only)",
         "pl": "Poprawka: 'Connecting to TV' logowane jako info tylko przy pierwszej próbie — kolejne reconnecty są ciche (debug)"
