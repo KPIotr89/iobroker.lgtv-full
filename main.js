@@ -717,38 +717,34 @@ class LgtvFullAdapter extends utils.Adapter {
     /**
      * Write a system setting wrapped in createAlert / closeAlert.
      * webOS 24+ shows "unknown message OK" on screen when setSystemSettings is called
-     * without a preceding createAlert. This wrapper creates a silent alert, applies
-     * the setting, and immediately closes the alert so the popup never appears.
+     * from an external SSAP app. The fix (confirmed by homebridge-lgwebos-tv issue #308):
+     *   1. createAlert  — creates a transient on-screen dialog (minimal payload: title+message+buttons)
+     *   2. setSystemSettings — applies the setting (runs in parallel with step 3)
+     *   3. closeAlert   — immediately dismisses the alert before the user sees it
+     * The critical detail: payload must NOT include iconData/iconExtension/params/isSysReq.
      */
     _setWithAlert(category, settings, cb) {
-        const label = Object.keys(settings).join(', ');
-        const value = Object.values(settings).join(', ');
-
-        // Send createAlert and setSystemSettings in parallel.
-        // Close the alert immediately when alertId arrives — do NOT wait for setSystemSettings.
-        // This minimises the window during which the alert is visible on screen.
         this.tv.request('ssap://system.notifications/createAlert', {
             title:   'ioBroker',
-            message: `${label}: ${value}`,
-            buttons: [{ label: 'OK', params: {} }],
+            message: 'Applying setting…',
+            buttons: [{ label: 'OK', type: 'confirm' }]
         }, (alertErr, alertRes) => {
-            const alertId = alertRes && alertRes.alertId;
-            this.log.debug(`createAlert id=${alertId || 'n/a'} err=${alertErr ? alertErr.message : 'none'}`);
+            const alertId = !alertErr && alertRes && alertRes.alertId;
+            this.log.debug(`createAlert: ${alertId || (alertErr && alertErr.message) || 'no alertId'}`);
+
+            // Apply the setting (regardless of whether createAlert succeeded)
+            this.tv.request('ssap://settings/setSystemSettings',
+                { category, settings },
+                (err, res) => { if (cb) cb(err, res); }
+            );
+
+            // Immediately close the alert so it never becomes visible
             if (alertId) {
-                this.tv.request('ssap://system.notifications/closeAlert',
-                    { alertId },
-                    (closeErr) => {
-                        this.log.debug(`closeAlert: ${closeErr ? closeErr.message : 'ok'}`);
-                    }
-                );
+                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (closeErr) => {
+                    this.log.debug(`closeAlert ${alertId}: ${closeErr ? closeErr.message : 'ok'}`);
+                });
             }
         });
-
-        // Apply the setting in parallel — callback goes straight to the caller
-        this.tv.request('ssap://settings/setSystemSettings',
-            { category, settings },
-            cb
-        );
     }
 
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */

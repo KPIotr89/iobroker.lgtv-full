@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.14",
+    "version": "1.2.15",
     "news": {
+      "1.2.15": {
+        "en": "Fix: createAlert with clean payload (title+message+buttons only, no iconData/isSysReq/params) — TV now responds to closeAlert and dismisses the dialog before user sees it; confirmed approach from homebridge-lgwebos-tv issue #308",
+        "pl": "Poprawka: createAlert z czystym payloadem (tylko title+message+buttons, bez iconData/isSysReq/params) — TV odpowiada na closeAlert i zamyka dialog zanim użytkownik go zobaczy; podejście potwierdzone przez homebridge-lgwebos-tv issue #308"
+      },
       "1.2.14": {
         "en": "Fix: subscribe to ssap://system.notifications/getStatus — auto-dismiss native webOS 24 'unknown message OK' popup by closing its alertId immediately when it appears",
         "pl": "Poprawka: subskrypcja ssap://system.notifications/getStatus — automatyczne zamykanie natywnego popupu webOS 24 'unknown message OK' przez natychmiastowe zamknięcie jego alertId"
