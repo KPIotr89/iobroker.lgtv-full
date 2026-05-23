@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.15",
+    "version": "1.2.16",
     "news": {
+      "1.2.16": {
+        "en": "Fix: createAlert/closeAlert cannot suppress webOS 24 system popup — TV ignores closeAlert entirely; use BACK button at 50ms+400ms after setSystemSettings to auto-dismiss 'unknown message OK' dialog",
+        "pl": "Poprawka: createAlert/closeAlert nie eliminuje systemowego popupu webOS 24 — TV całkowicie ignoruje closeAlert; przycisk BACK w 50ms+400ms po setSystemSettings automatycznie zamyka dialog 'unknown message OK'"
+      },
       "1.2.15": {
         "en": "Fix: createAlert with clean payload (title+message+buttons only, no iconData/isSysReq/params) — TV now responds to closeAlert and dismisses the dialog before user sees it; confirmed approach from homebridge-lgwebos-tv issue #308",
         "pl": "Poprawka: createAlert z czystym payloadem (tylko title+message+buttons, bez iconData/isSysReq/params) — TV odpowiada na closeAlert i zamyka dialog zanim użytkownik go zobaczy; podejście potwierdzone przez homebridge-lgwebos-tv issue #308"
