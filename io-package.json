@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.17",
+    "version": "1.2.18",
     "news": {
+      "1.2.18": {
+        "en": "Fix: send ENTER immediately after createAlert (setTimeout 0) — both travel on same WebSocket queue, TV processes createAlert then ENTER before dialog renders on screen",
+        "pl": "Poprawka: ENTER wysyłany natychmiast po createAlert (setTimeout 0) — oba idą tą samą kolejką WebSocket, TV przetwarza createAlert a potem ENTER zanim dialog wyrenderuje się na ekranie"
+      },
       "1.2.17": {
         "en": "Fix: createAlert with Luna onClick — TV applies setting internally (no external SSAP call, no popup); ENTER confirms modal dialog safely; BACK button approach removed",
         "pl": "Poprawka: createAlert z Luna onClick — TV aplikuje ustawienie wewnętrznie (bez zewnętrznego SSAP, bez popup); ENTER potwierdza modal dialog bezpiecznie; usunięto podejście z BACK"
