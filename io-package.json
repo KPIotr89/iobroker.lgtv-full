@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.11",
+    "version": "1.2.12",
     "news": {
+      "1.2.12": {
+        "en": "Fix: send closeAlert immediately when alertId arrives, parallel with setSystemSettings — previously closeAlert was sent ~100ms too late after setSystemSettings completed",
+        "pl": "Poprawka: closeAlert wysyłany natychmiast po otrzymaniu alertId, równolegle z setSystemSettings — poprzednio closeAlert był wysyłany ~100ms za późno po zakończeniu setSystemSettings"
+      },
       "1.2.11": {
         "en": "Fix: remove onClick from createAlert button — empty string caused 'Invalid Service Uri' error, alert was never created, TV showed own 'unknown message OK' dialog",
         "pl": "Poprawka: usunięto onClick z przycisku createAlert — pusty string powodował błąd 'Invalid Service Uri', alert się nie tworzył, TV pokazywał własny dialog 'unknown message OK'"
