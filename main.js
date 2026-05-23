@@ -220,7 +220,10 @@ class LgTvSocket {
                 return cb(err || new Error('Missing socketPath'));
             }
             const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
-            sock.on('open',  ()  => cb(null, { send: (type, p) => sock.send(JSON.stringify({ type, ...p })) }));
+            sock.on('open',  ()  => cb(null, { send: (type, p) => {
+                const lines = [`type:${type}`, ...Object.entries(p).map(([k, v]) => `${k}:${v}`)];
+                sock.send(lines.join('\n') + '\n\n');
+            } }));
             sock.on('error', (e) => cb(e));
         });
     }
@@ -509,7 +512,10 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (err || !res || !res.socketPath) { tryNext(); return; }
                 const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
                 sock.on('open',  ()  => {
-                    this.inputSocket = { send: (type, p) => sock.send(JSON.stringify({ type, ...p })) };
+                    this.inputSocket = { send: (type, p) => {
+                        const lines = [`type:${type}`, ...Object.entries(p).map(([k, v]) => `${k}:${v}`)];
+                        sock.send(lines.join('\n') + '\n\n');
+                    } };
                     this.log.debug('Remote control pointer socket opened');
                 });
                 sock.on('error', (e) => this.log.debug(`Pointer socket: ${e.message || e}`));

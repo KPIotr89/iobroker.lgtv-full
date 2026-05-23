@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.19",
+    "version": "1.2.20",
     "news": {
+      "1.2.20": {
+        "en": "Fix: pointer input socket now uses correct webOS text frame format (type:button\\nname:ENTER\\n\\n) — ENTER key on modal createAlert dialog now works, blank 'OK' popup finally dismissed",
+        "pl": "Poprawka: socket pilota używa prawidłowego formatu tekstowego webOS (type:button\\nname:ENTER\\n\\n) — klawisz ENTER na oknie dialogowym createAlert działa, puste okno 'OK' wreszcie zamknięte"
+      },
       "1.2.19": {
         "en": "Fix: add timeout:0 to createAlert (instant onclose→Luna if supported) + ENTER at 80ms as fallback; dialog should not be visible to user",
         "pl": "Poprawka: timeout:0 w createAlert (natychmiastowy onclose→Luna jeśli webOS to obsługuje) + ENTER przy 80ms jako fallback; dialog nie powinien być widoczny"
