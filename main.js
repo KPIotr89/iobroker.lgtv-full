@@ -699,20 +699,53 @@ class LgtvFullAdapter extends utils.Adapter {
         this.mqttClient.publish(topic, payload, { retain: true });
     }
 
+    /**
+     * Write a system setting wrapped in createAlert / closeAlert.
+     * webOS 24+ shows "unknown message OK" on screen when setSystemSettings is called
+     * without a preceding createAlert. This wrapper creates a silent alert, applies
+     * the setting, and immediately closes the alert so the popup never appears.
+     */
+    _setWithAlert(category, settings, cb) {
+        const label   = Object.keys(settings).join(', ');
+        const value   = Object.values(settings).join(', ');
+
+        // Step 1: create alert (authorises the settings change in webOS 24+)
+        this.tv.request('ssap://system.notifications/createAlert', {
+            title:   'ioBroker',
+            message: `${category}: ${label} = ${value}`,
+            buttons: [{ label: 'OK', onClick: '' }],
+            type:    'confirm',
+        }, (alertErr, alertRes) => {
+            const alertId = alertRes && alertRes.alertId;
+            this.log.debug(`createAlert id=${alertId || 'n/a'} err=${alertErr ? alertErr.message : 'none'}`);
+
+            // Step 2: apply the actual setting
+            this.tv.request('ssap://settings/setSystemSettings',
+                { category, settings },
+                (err, res) => {
+                    // Step 3: immediately close the alert so nothing shows on screen
+                    if (alertId) {
+                        this.tv.request('ssap://system.notifications/closeAlert',
+                            { alertId },
+                            (closeErr) => {
+                                if (closeErr) this.log.debug(`closeAlert: ${closeErr.message}`);
+                            }
+                        );
+                    }
+                    if (cb) cb(err, res);
+                }
+            );
+        });
+    }
+
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */
     _setPictureSetting(settings, cb) {
-        this.tv.request('ssap://settings/setSystemSettings',
-            { category: 'picture', settings },
-            cb
-        );
+        this._setWithAlert('picture', settings, cb);
     }
 
     /** Write sound settings via SSAP. */
     _setSoundSetting(settings, cb) {
-        this.tv.request('ssap://settings/setSystemSettings',
-            { category: 'sound', settings },
-            cb
-        );
+        this._setWithAlert('sound', settings, cb);
     }
 
     requestInputList() {

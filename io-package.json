@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.8",
+    "version": "1.2.9",
     "news": {
+      "1.2.9": {
+        "en": "Fix: wrap setSystemSettings in createAlert/closeAlert — webOS 24+ shows 'unknown message OK' on screen without this; alert is created and immediately dismissed so nothing appears on TV",
+        "pl": "Poprawka: setSystemSettings opakowane w createAlert/closeAlert — webOS 24+ wyświetla 'unknown message OK' bez tego; alert tworzony i natychmiast zamykany, nic nie pojawia się na TV"
+      },
       "1.2.8": {
         "en": "Fix: handle webOS 24+ type:'ok' acknowledgment messages; add onMessage handler to suppress 'unknown message' warnings in ioBroker log; improved returnValue parsing (string 'False' support)",
         "pl": "Poprawka: obsługa nowych wiadomości type:'ok' z webOS 24+; handler onMessage eliminuje ostrzeżenia 'unknown message' w logu ioBroker; lepsza obsługa returnValue (string 'False')"
