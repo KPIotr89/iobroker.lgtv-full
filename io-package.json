@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.10",
+    "version": "1.2.11",
     "news": {
+      "1.2.11": {
+        "en": "Fix: remove onClick from createAlert button — empty string caused 'Invalid Service Uri' error, alert was never created, TV showed own 'unknown message OK' dialog",
+        "pl": "Poprawka: usunięto onClick z przycisku createAlert — pusty string powodował błąd 'Invalid Service Uri', alert się nie tworzył, TV pokazywał własny dialog 'unknown message OK'"
+      },
       "1.2.10": {
         "en": "Fix: correct createAlert payload format (iconData, iconExtension, isSysReq, params) — invalid format caused 'unknown message OK' dialog instead of proper alert",
         "pl": "Poprawka: prawidłowy format createAlert (iconData, iconExtension, isSysReq, params) — błędny format powodował dialog 'unknown message OK' zamiast właściwego alertu"

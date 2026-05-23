@@ -717,7 +717,7 @@ class LgtvFullAdapter extends utils.Adapter {
             iconData:      '',
             iconExtension: '',
             isSysReq:      true,
-            buttons: [{ label: 'OK', onClick: '', params: {} }],
+            buttons: [{ label: 'OK', params: {} }],
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert id=${alertId || 'n/a'} err=${alertErr ? alertErr.message : 'none'}`);
