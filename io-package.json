@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.9",
+    "version": "1.2.10",
     "news": {
+      "1.2.10": {
+        "en": "Fix: correct createAlert payload format (iconData, iconExtension, isSysReq, params) — invalid format caused 'unknown message OK' dialog instead of proper alert",
+        "pl": "Poprawka: prawidłowy format createAlert (iconData, iconExtension, isSysReq, params) — błędny format powodował dialog 'unknown message OK' zamiast właściwego alertu"
+      },
       "1.2.9": {
         "en": "Fix: wrap setSystemSettings in createAlert/closeAlert — webOS 24+ shows 'unknown message OK' on screen without this; alert is created and immediately dismissed so nothing appears on TV",
         "pl": "Poprawka: setSystemSettings opakowane w createAlert/closeAlert — webOS 24+ wyświetla 'unknown message OK' bez tego; alert tworzony i natychmiast zamykany, nic nie pojawia się na TV"

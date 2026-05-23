@@ -710,11 +710,14 @@ class LgtvFullAdapter extends utils.Adapter {
         const value   = Object.values(settings).join(', ');
 
         // Step 1: create alert (authorises the settings change in webOS 24+)
+        // Format must match webOS spec exactly — unknown fields cause "unknown message OK"
         this.tv.request('ssap://system.notifications/createAlert', {
-            title:   'ioBroker',
-            message: `${category}: ${label} = ${value}`,
-            buttons: [{ label: 'OK', onClick: '' }],
-            type:    'confirm',
+            title:         'ioBroker',
+            message:       `${label}: ${value}`,
+            iconData:      '',
+            iconExtension: '',
+            isSysReq:      true,
+            buttons: [{ label: 'OK', onClick: '', params: {} }],
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert id=${alertId || 'n/a'} err=${alertErr ? alertErr.message : 'none'}`);
