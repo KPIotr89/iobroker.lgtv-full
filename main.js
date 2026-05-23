@@ -563,6 +563,21 @@ class LgtvFullAdapter extends utils.Adapter {
             this._set('screenSaver', res.actived === true || res.screenSaverRunning === true);
         });
 
+        // Auto-dismiss any alert/notification that appears on screen.
+        // webOS 24 shows a native "unknown message OK" popup when settings are
+        // changed via SSAP. Subscribing to getStatus lets us catch incoming alertIds
+        // and close them immediately without user interaction.
+        this.tv.subscribe('ssap://system.notifications/getStatus', (err, res) => {
+            if (err || !res) return;
+            const alertId = res.alertId || (res.alerts && res.alerts[0] && res.alerts[0].alertId);
+            if (alertId) {
+                this.log.debug(`Auto-dismissing alert: ${alertId}`);
+                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (closeErr) => {
+                    this.log.debug(`Auto-dismiss: ${closeErr ? closeErr.message : 'ok'}`);
+                });
+            }
+        });
+
         // Push subscription for picture settings changes
         this.tv.subscribe('ssap://settings/getSystemSettings',
             { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'] },

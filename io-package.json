@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.13",
+    "version": "1.2.14",
     "news": {
+      "1.2.14": {
+        "en": "Fix: subscribe to ssap://system.notifications/getStatus — auto-dismiss native webOS 24 'unknown message OK' popup by closing its alertId immediately when it appears",
+        "pl": "Poprawka: subskrypcja ssap://system.notifications/getStatus — automatyczne zamykanie natywnego popupu webOS 24 'unknown message OK' przez natychmiastowe zamknięcie jego alertId"
+      },
       "1.2.13": {
         "en": "Fix: remove isSysReq:true from createAlert — system-level alerts show as 'unknown message OK' and cannot be closed via closeAlert; regular alerts can be dismissed programmatically",
         "pl": "Poprawka: usunięto isSysReq:true z createAlert — alerty systemowe pokazują się jako 'unknown message OK' i nie można ich zamknąć przez closeAlert; zwykłe alerty można zamknąć programowo"
