@@ -715,37 +715,47 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     /**
-     * Write a system setting and auto-dismiss the webOS 24 "unknown message OK" popup.
+     * Write a system setting without triggering the webOS 24 "unknown message OK" popup.
      *
-     * webOS 24 generates a native system popup every time an external SSAP app calls
-     * setSystemSettings. createAlert/closeAlert does NOT suppress this popup — they manage
-     * a separate alert layer. The only reliable way to dismiss it is pressing BACK.
+     * Root cause: webOS 24 shows the popup whenever an *external* SSAP app calls
+     * setSystemSettings directly. The fix: use createAlert whose onClick/onclose point to
+     * the Luna service URI. The TV then applies the setting *internally* (not via SSAP),
+     * so no popup is generated. We press ENTER to confirm the modal dialog — safe because
+     * modal:true means ENTER goes exclusively to the dialog, never to the app beneath.
      *
-     * Strategy: send BACK twice after the setting is applied:
-     *   - at  50 ms: catches early-appearing popups (before response round-trip)
-     *   - at 400 ms: catches popups that appear slightly after the setting is confirmed
+     * Fallback: if createAlert itself fails, fall back to direct SSAP (popup may appear).
      */
     _setWithAlert(category, settings, cb) {
-        this.tv.request('ssap://settings/setSystemSettings',
-            { category, settings },
-            (err, res) => {
-                if (cb) cb(err, res);
-                if (!err && this.connected) {
-                    const dismiss = () => {
-                        if (!this.connected) return;
-                        if (this.inputSocket) {
-                            this.inputSocket.send('button', { name: 'BACK' });
-                        } else {
-                            this.tv.request('ssap://input/sendButton', { name: 'BACK' }, (e) => {
-                                if (e) this.log.debug(`auto-dismiss BACK: ${e.message}`);
-                            });
-                        }
-                    };
-                    setTimeout(dismiss,  50);
-                    setTimeout(dismiss, 400);
-                }
+        const lunaUri = 'luna://com.webos.settingsservice/setSystemSettings';
+        const lunaPayload = { category, settings };
+
+        this.tv.request('ssap://system.notifications/createAlert', {
+            title:   ' ',
+            message: ' ',
+            modal:   true,
+            buttons: [{ label: 'OK', focus: true, buttonType: 'ok', onClick: lunaUri, params: lunaPayload }],
+            onclose: { uri: lunaUri, params: lunaPayload },
+            onfail:  { uri: lunaUri, params: lunaPayload },
+            type:    'confirm'
+        }, (alertErr, alertRes) => {
+            const alertId = !alertErr && alertRes && alertRes.alertId;
+            this.log.debug(`createAlert: ${alertId || (alertErr && alertErr.message) || 'no alertId'}`);
+
+            if (!alertId) {
+                // createAlert failed — direct SSAP fallback (popup may appear)
+                this.tv.request('ssap://settings/setSystemSettings', { category, settings }, cb);
+                return;
             }
-        );
+
+            // Confirm the modal dialog with ENTER — fires onClick (Luna call, no SSAP popup)
+            if (this.inputSocket) {
+                this.inputSocket.send('button', { name: 'ENTER' });
+            } else {
+                this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
+            }
+
+            if (cb) cb(null, {});
+        });
     }
 
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */

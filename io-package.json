@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.16",
+    "version": "1.2.17",
     "news": {
+      "1.2.17": {
+        "en": "Fix: createAlert with Luna onClick — TV applies setting internally (no external SSAP call, no popup); ENTER confirms modal dialog safely; BACK button approach removed",
+        "pl": "Poprawka: createAlert z Luna onClick — TV aplikuje ustawienie wewnętrznie (bez zewnętrznego SSAP, bez popup); ENTER potwierdza modal dialog bezpiecznie; usunięto podejście z BACK"
+      },
       "1.2.16": {
         "en": "Fix: createAlert/closeAlert cannot suppress webOS 24 system popup — TV ignores closeAlert entirely; use BACK button at 50ms+400ms after setSystemSettings to auto-dismiss 'unknown message OK' dialog",
         "pl": "Poprawka: createAlert/closeAlert nie eliminuje systemowego popupu webOS 24 — TV całkowicie ignoruje closeAlert; przycisk BACK w 50ms+400ms po setSystemSettings automatycznie zamyka dialog 'unknown message OK'"
