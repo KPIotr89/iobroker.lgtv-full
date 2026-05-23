@@ -738,24 +738,25 @@ class LgtvFullAdapter extends utils.Adapter {
             buttons: [{ label: 'OK', focus: true, buttonType: 'ok', onClick: lunaUri, params: lunaPayload }],
             onclose: { uri: lunaUri, params: lunaPayload },
             onfail:  { uri: lunaUri, params: lunaPayload },
-            type:    'confirm'
+            type:    'confirm',
+            timeout: 0
         }, (alertErr, alertRes) => {
             this.log.debug(`createAlert: ${alertRes && alertRes.alertId || (alertErr && alertErr.message) || 'no alertId'}`);
             if (cb) cb(null, {});
         });
 
-        // Send ENTER on the very next event-loop tick — it travels on the same WebSocket
-        // connection as createAlert, so the TV receives them in order: createAlert first
-        // (creates the modal), ENTER second (confirms it via onClick before the dialog
-        // ever renders on screen). The setting is applied via Luna internally, no popup.
-        setTimeout(() => {
+        // Try to auto-dismiss the dialog via ENTER at ~80 ms — by that time the modal
+        // is rendered on the TV side and ENTER confirms it (fires onClick = Luna call).
+        // Also rely on onclose being triggered when the dialog is dismissed.
+        const pressEnter = () => {
             if (!this.connected) return;
             if (this.inputSocket) {
                 this.inputSocket.send('button', { name: 'ENTER' });
             } else {
                 this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
             }
-        }, 0);
+        };
+        setTimeout(pressEnter, 80);
     }
 
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.18",
+    "version": "1.2.19",
     "news": {
+      "1.2.19": {
+        "en": "Fix: add timeout:0 to createAlert (instant onclose→Luna if supported) + ENTER at 80ms as fallback; dialog should not be visible to user",
+        "pl": "Poprawka: timeout:0 w createAlert (natychmiastowy onclose→Luna jeśli webOS to obsługuje) + ENTER przy 80ms jako fallback; dialog nie powinien być widoczny"
+      },
       "1.2.18": {
         "en": "Fix: send ENTER immediately after createAlert (setTimeout 0) — both travel on same WebSocket queue, TV processes createAlert then ENTER before dialog renders on screen",
         "pl": "Poprawka: ENTER wysyłany natychmiast po createAlert (setTimeout 0) — oba idą tą samą kolejką WebSocket, TV przetwarza createAlert a potem ENTER zanim dialog wyrenderuje się na ekranie"
