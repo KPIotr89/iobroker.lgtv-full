@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.12",
+    "version": "1.2.13",
     "news": {
+      "1.2.13": {
+        "en": "Fix: remove isSysReq:true from createAlert — system-level alerts show as 'unknown message OK' and cannot be closed via closeAlert; regular alerts can be dismissed programmatically",
+        "pl": "Poprawka: usunięto isSysReq:true z createAlert — alerty systemowe pokazują się jako 'unknown message OK' i nie można ich zamknąć przez closeAlert; zwykłe alerty można zamknąć programowo"
+      },
       "1.2.12": {
         "en": "Fix: send closeAlert immediately when alertId arrives, parallel with setSystemSettings — previously closeAlert was sent ~100ms too late after setSystemSettings completed",
         "pl": "Poprawka: closeAlert wysyłany natychmiast po otrzymaniu alertId, równolegle z setSystemSettings — poprzednio closeAlert był wysyłany ~100ms za późno po zakończeniu setSystemSettings"

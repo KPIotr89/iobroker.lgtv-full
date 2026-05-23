@@ -713,12 +713,9 @@ class LgtvFullAdapter extends utils.Adapter {
         // Close the alert immediately when alertId arrives — do NOT wait for setSystemSettings.
         // This minimises the window during which the alert is visible on screen.
         this.tv.request('ssap://system.notifications/createAlert', {
-            title:         'ioBroker',
-            message:       `${label}: ${value}`,
-            iconData:      '',
-            iconExtension: '',
-            isSysReq:      true,
-            buttons:       [{ label: 'OK', params: {} }],
+            title:   'ioBroker',
+            message: `${label}: ${value}`,
+            buttons: [{ label: 'OK', params: {} }],
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert id=${alertId || 'n/a'} err=${alertErr ? alertErr.message : 'none'}`);
