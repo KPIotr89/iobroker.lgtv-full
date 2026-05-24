@@ -755,11 +755,10 @@ class LgtvFullAdapter extends utils.Adapter {
         // ssap://input/sendButton and getPointerInputService are both 404 on webOS 24.
         // Dismissal relies entirely on isSysReq:true + timeout:0 mechanism.
 
-        // webOS 24 strategy:
-        // - modal:false + isSysReq:true → closeAlert is NOT ignored (confirmed in logs)
-        // - timeout:0 → dialog waits, but we dismiss it ourselves via closeAlert at 50ms
-        // - onclose fires Luna setSystemSettings when closeAlert dismisses the dialog
-        // - net result: dialog appears for ~50ms (invisible to user), setting applied
+        // webOS 24: isSysReq:true + modal:false + timeout:0 causes the dialog to
+        // auto-dismiss in one render frame via the onclose Luna callback.
+        // No closeAlert or button press needed — the TV handles it internally.
+        // The brief flash (one frame ~16ms) is a known webOS 24 firmware behaviour.
         this.tv.request('ssap://system.notifications/createAlert', {
             title:    ' ',
             message:  ' ',
@@ -778,25 +777,17 @@ class LgtvFullAdapter extends utils.Adapter {
             if (cb) cb(null, {});
 
             if (!alertId) {
-                this.log.warn(`createAlert failed (${alertErr && alertErr.message}), direct SSAP fallback`);
-                this.tv.request('ssap://settings/setSystemSettings', { category, settings }, (e, r) => {
-                    this.log.debug(`direct setSystemSettings: ${e ? e.message : (r && r.returnValue)}`);
+                this.log.warn(`createAlert failed: ${alertErr && alertErr.message} — direct SSAP fallback`);
+                this.tv.request('ssap://settings/setSystemSettings', { category, settings }, (e) => {
+                    this.log.debug(`direct setSystemSettings fallback: ${e ? e.message : 'ok'}`);
                 });
                 return;
             }
 
-            // Dismiss the dialog immediately via closeAlert.
-            // With modal:false + isSysReq:true, closeAlert works on webOS 24
-            // and triggers onclose → Luna setSystemSettings → setting applied.
-            // Pointer socket used on older webOS as alternative.
+            // Older webOS with pointer socket: press ENTER to confirm immediately
             if (this.inputSocket) {
                 setTimeout(() => { this.inputSocket.send('button', { name: 'ENTER' }); }, 10);
             }
-            setTimeout(() => {
-                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
-                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
-                });
-            }, 50);
         });
     }
 
