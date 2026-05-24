@@ -497,49 +497,31 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     openInputSocket() {
-        // webOS uses networkinput service for pointer/button input socket.
-        // On webOS 24 (webOS 8.x) both request and subscribe variants are tried.
-        // CONTROL_MOUSE_AND_KEYBOARD must be in the unsigned permissions of the manifest
-        // (not just signed.permissions) for the TV to grant access to this endpoint.
-        //
-        // If pointer socket is unavailable, remote buttons fall back to SSAP.
+        // On webOS 24 (G-series 2024, webOS 8.x):
+        //   ssap://com.webos.service.networkinput/getPointerInputService → 404 (service removed)
+        //   ssap://input/sendButton → 404 (service removed)
+        // Both pointer socket and sendButton are unavailable on this platform.
+        // Settings are applied via Luna service callbacks in createAlert (see _setWithAlert).
+        // Remote control buttons use ssap://com.webos.service.apiadapter/sendRemoteKey if available.
         const POINTER_URI = 'ssap://com.webos.service.networkinput/getPointerInputService';
-
-        const openSock = (socketPath) => {
-            const sock = new WebSocket(socketPath, { rejectUnauthorized: false });
-            sock.on('open', () => {
-                this.inputSocket = { send: (type, p) => {
-                    const lines = [`type:${type}`, ...Object.entries(p).map(([k, v]) => `${k}:${v}`)];
-                    sock.send(lines.join('\n') + '\n\n');
-                } };
-                this.log.info('Remote control pointer socket opened (ENTER key will work)');
-            });
-            sock.on('error', (e) => this.log.debug(`Pointer socket error: ${e.message || e}`));
-            sock.on('close', () => { this.inputSocket = null; this.log.debug('Pointer socket closed'); });
-        };
-
-        // Attempt 1: one-shot request
         this.tv.request(POINTER_URI, (err, res) => {
-            const errMsg = err ? (err.message || String(err)) : null;
-            this.log.debug(`getPointerInputService (request): err="${errMsg}" socketPath="${res && res.socketPath}"`);
             if (!err && res && res.socketPath) {
-                openSock(res.socketPath);
-                return;
+                // Older webOS: open pointer socket for direct key injection
+                const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
+                sock.on('open', () => {
+                    this.inputSocket = { send: (type, p) => {
+                        const lines = [`type:${type}`, ...Object.entries(p).map(([k, v]) => `${k}:${v}`)];
+                        sock.send(lines.join('\n') + '\n\n');
+                    } };
+                    this.log.info('Remote control pointer socket opened');
+                });
+                sock.on('error', (e) => this.log.debug(`Pointer socket: ${e.message || e}`));
+                sock.on('close', () => { this.inputSocket = null; });
+            } else {
+                const msg = err ? (err.message || '?') : 'no socketPath';
+                this.log.debug(`Pointer socket not available (${msg}) — webOS 24 uses Luna callbacks for settings`);
             }
-            // Attempt 2: subscription (some webOS versions respond only to subscribe)
-            this.log.debug('Pointer socket: request failed, trying subscribe...');
-            this.tv.subscribe(POINTER_URI, (subErr, subRes) => {
-                const subErrMsg = subErr ? (subErr.message || String(subErr)) : null;
-                this.log.debug(`getPointerInputService (subscribe): err="${subErrMsg}" socketPath="${subRes && subRes.socketPath}"`);
-                if (!subErr && subRes && subRes.socketPath && !this.inputSocket) {
-                    openSock(subRes.socketPath);
-                } else if (!this.inputSocket && idx === 0) {
-                    this.log.debug('Pointer input service unavailable — re-pair after clearing TV SSAP clients, or use SSAP button fallback');
-                }
-                idx++;
-            });
         });
-        let idx = 0; // tracks subscribe callback invocations
     }
 
     subscribeEvents() {
@@ -752,39 +734,28 @@ class LgtvFullAdapter extends utils.Adapter {
         const lunaUri    = 'luna://com.webos.settingsservice/setSystemSettings';
         const lunaParams = { category, settings };
 
-        // Helper: send ENTER/click to dismiss the alert dialog.
-        // Called repeatedly with short delays to ensure it hits after the dialog is ready.
-        const pressEnter = (alertId) => {
-            if (!this.connected) return;
-            if (this.inputSocket) {
-                // Pointer socket: most reliable — directly sends ENTER to the focused button
-                this.log.debug('pressEnter: via inputSocket ENTER');
-                this.inputSocket.send('button', { name: 'ENTER' });
-            } else if (alertId) {
-                // Try closeAlert first (ignored on webOS 24 but harmless to try)
-                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
-                    this.log.debug(`closeAlert: ${e ? (e.message || '{}') : 'ok'}`);
-                });
-                // Also try sendButton ENTER — works on non-modal alerts
-                this.tv.request('ssap://input/sendButton', { name: 'ENTER' }, (e) => {
-                    this.log.debug(`sendButton ENTER: ${e ? (e.message || '{}') : 'ok'}`);
-                });
-            } else {
-                this.tv.request('ssap://input/sendButton', { name: 'ENTER' }, (e) => {
-                    this.log.debug(`sendButton ENTER (no alertId): ${e ? (e.message || '{}') : 'ok'}`);
-                });
-            }
-        };
+        // webOS 24 (webOS 8.x / G-series 2024) strategy:
+        //
+        // Calling ssap://settings/setSystemSettings directly shows "unknown message OK" popup.
+        // Fix: use createAlert whose onClick/onclose callbacks invoke the Luna service internally.
+        // The TV executes the setting via its own system context — no external call, no popup.
+        //
+        // Key requirements (learned from webOS 24 testing):
+        //   - title and message must NOT be empty (TV returns "Message can't be empty")
+        //   - isSysReq: true → system-level alert, auto-dismissed quickly by webOS
+        //   - modal: false → prevents input blocking (sendButton/pointer errors when modal:true)
+        //   - timeout: 0 → with isSysReq:true, dialog renders one frame then auto-closes
+        //   - onclose fires the Luna call when dialog auto-closes (setting applied)
+        //   - onClick fires the Luna call if user somehow clicks OK (belt-and-suspenders)
+        //
+        // ssap://input/sendButton and getPointerInputService are both 404 on webOS 24.
+        // Dismissal relies entirely on isSysReq:true + timeout:0 mechanism.
 
-        // Strategy A: isSysReq:true + modal:false
-        // System-level non-modal alert: the TV may auto-dismiss it after the onClick fires,
-        // AND sendButton should NOT return an error (no modal blocking).
-        // The Luna callbacks ensure the setting is applied either via onClick or onclose.
         this.tv.request('ssap://system.notifications/createAlert', {
-            title:    '',
-            message:  '',
-            modal:    false,          // non-modal: sendButton/pointer should work
-            isSysReq: true,           // system-level: may auto-dismiss after action
+            title:    ' ',           // must be non-empty — single space is accepted
+            message:  ' ',           // must be non-empty — single space is accepted
+            modal:    false,
+            isSysReq: true,
             buttons:  [{ label: 'OK', focus: true, buttonType: 'ok',
                          onClick: lunaUri, params: lunaParams }],
             onclose:  { uri: lunaUri, params: lunaParams },
@@ -793,16 +764,32 @@ class LgtvFullAdapter extends utils.Adapter {
             timeout:  0,
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
-            this.log.debug(`createAlert(isSysReq/non-modal) cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message||'{}') : 'none'}" inputSocket=${!!this.inputSocket}`);
+            this.log.debug(`createAlert cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message || alertErr) : 'ok'}"`);
 
             if (cb) cb(null, {});
 
-            // Dismiss with short delay burst — covers both pointer socket and SSAP paths.
-            // If isSysReq already dismissed it, extra calls are harmless.
-            setTimeout(() => pressEnter(alertId), 5);
-            setTimeout(() => pressEnter(alertId), 30);
-            setTimeout(() => pressEnter(alertId), 100);
-            setTimeout(() => pressEnter(alertId), 250);
+            if (!alertId) {
+                // createAlert itself failed — fall back to direct SSAP (popup may appear)
+                this.log.warn(`createAlert failed (${alertErr && alertErr.message}), falling back to direct setSystemSettings`);
+                this.tv.request('ssap://settings/setSystemSettings', { category, settings }, (e, r) => {
+                    this.log.debug(`direct setSystemSettings: ${e ? e.message : (r && r.returnValue)}`);
+                });
+                return;
+            }
+
+            // Pointer socket: only available on older webOS. On webOS 24 this is a no-op.
+            if (this.inputSocket) {
+                setTimeout(() => {
+                    this.log.debug('pressEnter: via inputSocket');
+                    this.inputSocket.send('button', { name: 'ENTER' });
+                }, 10);
+            }
+            // closeAlert: ignored on webOS 24, but try anyway for older webOS compatibility
+            setTimeout(() => {
+                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
+                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
+                });
+            }, 50);
         });
     }
 
