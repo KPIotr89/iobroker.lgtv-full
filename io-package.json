@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.31",
+    "version": "1.2.32",
     "news": {
+      "1.2.32": {
+        "en": "Fix: restore closeAlert at 50ms to dismiss dialog invisibly — with modal:false+isSysReq:true closeAlert works on webOS 24 and triggers onclose Luna call; revert timeout:1 back to timeout:0",
+        "pl": "Poprawka: przywrócono closeAlert po 50ms do niewidocznego zamknięcia dialogu — z modal:false+isSysReq:true closeAlert działa na webOS 24 i wyzwala callback onclose Luna; cofnięto timeout:1 na timeout:0"
+      },
       "1.2.31": {
         "en": "Fix: two-layer deduplication — skip write if TV already confirmed value, plus 55s throttle to suppress repeated MQTT commands (e.g. Loxone scene backup); timeout:1 in createAlert so dialog auto-closes",
         "pl": "Poprawka: dwuwarstwowa deduplikacja — pomija zapis jeśli TV potwierdził już wartość, plus throttle 55s tłumi powtarzające się komendy MQTT (np. backup sceny Loxone); timeout:1 w createAlert — dialog sam się zamyka"

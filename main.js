@@ -755,9 +755,11 @@ class LgtvFullAdapter extends utils.Adapter {
         // ssap://input/sendButton and getPointerInputService are both 404 on webOS 24.
         // Dismissal relies entirely on isSysReq:true + timeout:0 mechanism.
 
-        // timeout: 1 → dialog auto-closes after 1 second, onclose fires Luna call.
-        // timeout: 0 means "wait forever" — user would have to click OK manually.
-        // isSysReq: true → system-level alert, minimal visual footprint on webOS 24.
+        // webOS 24 strategy:
+        // - modal:false + isSysReq:true → closeAlert is NOT ignored (confirmed in logs)
+        // - timeout:0 → dialog waits, but we dismiss it ourselves via closeAlert at 50ms
+        // - onclose fires Luna setSystemSettings when closeAlert dismisses the dialog
+        // - net result: dialog appears for ~50ms (invisible to user), setting applied
         this.tv.request('ssap://system.notifications/createAlert', {
             title:    ' ',
             message:  ' ',
@@ -768,7 +770,7 @@ class LgtvFullAdapter extends utils.Adapter {
             onclose:  { uri: lunaUri, params: lunaParams },
             onfail:   { uri: lunaUri, params: lunaParams },
             type:     'confirm',
-            timeout:  1,            // auto-close after 1 s → onclose applies setting
+            timeout:  0,
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message || alertErr) : 'ok'}"`);
@@ -783,10 +785,18 @@ class LgtvFullAdapter extends utils.Adapter {
                 return;
             }
 
-            // Older webOS: pointer socket can confirm the dialog immediately
+            // Dismiss the dialog immediately via closeAlert.
+            // With modal:false + isSysReq:true, closeAlert works on webOS 24
+            // and triggers onclose → Luna setSystemSettings → setting applied.
+            // Pointer socket used on older webOS as alternative.
             if (this.inputSocket) {
                 setTimeout(() => { this.inputSocket.send('button', { name: 'ENTER' }); }, 10);
             }
+            setTimeout(() => {
+                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
+                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
+                });
+            }, 50);
         });
     }
 
