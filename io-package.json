@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.24",
+    "version": "1.2.25",
     "news": {
+      "1.2.25": {
+        "en": "Fix: use CLICK instead of ENTER for SSAP sendButton — CLICK is the OK/center button via SSAP, ENTER is for text input only",
+        "pl": "Poprawka: CLICK zamiast ENTER w SSAP sendButton — CLICK to przycisk OK/środkowy przez SSAP, ENTER tylko do pól tekstowych"
+      },
       "1.2.24": {
         "en": "Debug: ENTER sent at 5ms/25ms/80ms after createAlert callback + logging to diagnose inputSocket availability",
         "pl": "Debug: ENTER wysyłany po 5ms/25ms/80ms od callbacku createAlert + logi diagnostyczne dostępności inputSocket"

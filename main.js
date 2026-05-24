@@ -740,11 +740,12 @@ class LgtvFullAdapter extends utils.Adapter {
         const pressEnter = () => {
             if (!this.connected) return;
             if (this.inputSocket) {
-                this.log.debug('pressEnter: via inputSocket (pointer)');
+                this.log.debug('pressEnter: via inputSocket (pointer) ENTER');
                 this.inputSocket.send('button', { name: 'ENTER' });
             } else {
-                this.log.debug('pressEnter: via SSAP sendButton (no pointer socket)');
-                this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
+                // Via SSAP: center/OK button is CLICK, not ENTER (ENTER is for text fields)
+                this.log.debug('pressEnter: via SSAP sendButton CLICK');
+                this.tv.request('ssap://input/sendButton', { name: 'CLICK' });
             }
         };
 
