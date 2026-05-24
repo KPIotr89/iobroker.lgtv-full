@@ -751,9 +751,9 @@ class LgtvFullAdapter extends utils.Adapter {
             if (cb) cb(null, {});
         });
 
-        // Try to auto-dismiss the dialog via ENTER at ~80 ms — by that time the modal
-        // is rendered on the TV side and ENTER confirms it (fires onClick = Luna call).
-        // Also rely on onclose being triggered when the dialog is dismissed.
+        // Press ENTER at 2ms — enough time for the TV to queue the dialog but before
+        // it renders on screen. Fires onClick = Luna call which applies the setting
+        // internally. onclose is also set as fallback.
         const pressEnter = () => {
             if (!this.connected) return;
             if (this.inputSocket) {
@@ -762,7 +762,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
             }
         };
-        setTimeout(pressEnter, 80);
+        setTimeout(pressEnter, 2);
     }
 
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */

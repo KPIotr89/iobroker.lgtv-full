@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.20",
+    "version": "1.2.21",
     "news": {
+      "1.2.21": {
+        "en": "Fix: reduce ENTER press delay from 80ms to 2ms — dialog dismissed before it renders on screen, no visible popup",
+        "pl": "Poprawka: skrócenie opóźnienia ENTER z 80ms do 2ms — dialog zamykany zanim wyrenderuje się na ekranie, popup niewidoczny"
+      },
       "1.2.20": {
         "en": "Fix: pointer input socket now uses correct webOS text frame format (type:button\\nname:ENTER\\n\\n) — ENTER key on modal createAlert dialog now works, blank 'OK' popup finally dismissed",
         "pl": "Poprawka: socket pilota używa prawidłowego formatu tekstowego webOS (type:button\\nname:ENTER\\n\\n) — klawisz ENTER na oknie dialogowym createAlert działa, puste okno 'OK' wreszcie zamknięte"
