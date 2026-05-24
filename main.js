@@ -740,8 +740,10 @@ class LgtvFullAdapter extends utils.Adapter {
         const pressEnter = () => {
             if (!this.connected) return;
             if (this.inputSocket) {
+                this.log.debug('pressEnter: via inputSocket (pointer)');
                 this.inputSocket.send('button', { name: 'ENTER' });
             } else {
+                this.log.debug('pressEnter: via SSAP sendButton (no pointer socket)');
                 this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
             }
         };
@@ -757,12 +759,13 @@ class LgtvFullAdapter extends utils.Adapter {
             timeout: 0
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
-            this.log.debug(`createAlert: ${alertId || (alertErr && alertErr.message) || 'no alertId'}`);
+            this.log.debug(`createAlert cb: alertId=${alertId || 'none'} inputSocket=${!!this.inputSocket}`);
             if (cb) cb(null, {});
-            // ENTER 2ms after TV responds to createAlert — by then the dialog is rendered
-            // (TV response arrives after WiFi RTT ~10-20ms, dialog renders in parallel).
-            // Fires onClick = Luna which applies the setting and dismisses the dialog.
-            setTimeout(pressEnter, 2);
+            // Send ENTER at 3 intervals — one of them should hit when dialog is focused.
+            // After onClick fires, extra ENTERs are harmless (dialog already gone).
+            setTimeout(pressEnter, 5);
+            setTimeout(pressEnter, 25);
+            setTimeout(pressEnter, 80);
         });
     }
 

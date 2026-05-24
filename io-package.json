@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.23",
+    "version": "1.2.24",
     "news": {
+      "1.2.24": {
+        "en": "Debug: ENTER sent at 5ms/25ms/80ms after createAlert callback + logging to diagnose inputSocket availability",
+        "pl": "Debug: ENTER wysyłany po 5ms/25ms/80ms od callbacku createAlert + logi diagnostyczne dostępności inputSocket"
+      },
       "1.2.23": {
         "en": "Fix: remove alertId guard — ENTER now always sent 2ms after createAlert response, regardless of alertId presence in callback",
         "pl": "Poprawka: usunięto blokadę alertId — ENTER wysyłany zawsze 2ms po odpowiedzi createAlert, niezależnie od obecności alertId w callbacku"
