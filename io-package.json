@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.22",
+    "version": "1.2.23",
     "news": {
+      "1.2.23": {
+        "en": "Fix: remove alertId guard — ENTER now always sent 2ms after createAlert response, regardless of alertId presence in callback",
+        "pl": "Poprawka: usunięto blokadę alertId — ENTER wysyłany zawsze 2ms po odpowiedzi createAlert, niezależnie od obecności alertId w callbacku"
+      },
       "1.2.22": {
         "en": "Fix: move ENTER press inside createAlert callback — fires 2ms after alertId received (not after request sent), matching homebridge behavior; dialog now invisible",
         "pl": "Poprawka: ENTER wysyłany wewnątrz callbacku createAlert — 2ms po otrzymaniu alertId (nie po wysłaniu żądania), identycznie jak homebridge; dialog niewidoczny"

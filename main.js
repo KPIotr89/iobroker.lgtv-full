@@ -758,11 +758,11 @@ class LgtvFullAdapter extends utils.Adapter {
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert: ${alertId || (alertErr && alertErr.message) || 'no alertId'}`);
-            if (!alertId) { if (cb) cb(null, {}); return; }
-            // ENTER sent 2ms after alertId received — TV has queued the dialog by then
-            // but hasn't rendered it on screen yet. Fires onClick = Luna (applies setting).
-            setTimeout(pressEnter, 2);
             if (cb) cb(null, {});
+            // ENTER 2ms after TV responds to createAlert — by then the dialog is rendered
+            // (TV response arrives after WiFi RTT ~10-20ms, dialog renders in parallel).
+            // Fires onClick = Luna which applies the setting and dismisses the dialog.
+            setTimeout(pressEnter, 2);
         });
     }
 
