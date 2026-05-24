@@ -737,6 +737,15 @@ class LgtvFullAdapter extends utils.Adapter {
 
         // Send createAlert — the onClick/onclose callbacks point to the Luna service so the TV
         // applies the setting internally (no external SSAP call → no system popup).
+        const pressEnter = () => {
+            if (!this.connected) return;
+            if (this.inputSocket) {
+                this.inputSocket.send('button', { name: 'ENTER' });
+            } else {
+                this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
+            }
+        };
+
         this.tv.request('ssap://system.notifications/createAlert', {
             title:   ' ',
             message: ' ',
@@ -747,22 +756,14 @@ class LgtvFullAdapter extends utils.Adapter {
             type:    'confirm',
             timeout: 0
         }, (alertErr, alertRes) => {
-            this.log.debug(`createAlert: ${alertRes && alertRes.alertId || (alertErr && alertErr.message) || 'no alertId'}`);
+            const alertId = alertRes && alertRes.alertId;
+            this.log.debug(`createAlert: ${alertId || (alertErr && alertErr.message) || 'no alertId'}`);
+            if (!alertId) { if (cb) cb(null, {}); return; }
+            // ENTER sent 2ms after alertId received — TV has queued the dialog by then
+            // but hasn't rendered it on screen yet. Fires onClick = Luna (applies setting).
+            setTimeout(pressEnter, 2);
             if (cb) cb(null, {});
         });
-
-        // Press ENTER at 2ms — enough time for the TV to queue the dialog but before
-        // it renders on screen. Fires onClick = Luna call which applies the setting
-        // internally. onclose is also set as fallback.
-        const pressEnter = () => {
-            if (!this.connected) return;
-            if (this.inputSocket) {
-                this.inputSocket.send('button', { name: 'ENTER' });
-            } else {
-                this.tv.request('ssap://input/sendButton', { name: 'ENTER' });
-            }
-        };
-        setTimeout(pressEnter, 2);
     }
 
     /** Write picture settings via SSAP (requires valid signed manifest with WRITE_SETTINGS). */

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.21",
+    "version": "1.2.22",
     "news": {
+      "1.2.22": {
+        "en": "Fix: move ENTER press inside createAlert callback — fires 2ms after alertId received (not after request sent), matching homebridge behavior; dialog now invisible",
+        "pl": "Poprawka: ENTER wysyłany wewnątrz callbacku createAlert — 2ms po otrzymaniu alertId (nie po wysłaniu żądania), identycznie jak homebridge; dialog niewidoczny"
+      },
       "1.2.21": {
         "en": "Fix: reduce ENTER press delay from 80ms to 2ms — dialog dismissed before it renders on screen, no visible popup",
         "pl": "Poprawka: skrócenie opóźnienia ENTER z 80ms do 2ms — dialog zamykany zanim wyrenderuje się na ekranie, popup niewidoczny"
