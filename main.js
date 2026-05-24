@@ -320,6 +320,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv           = null;
         this.inputSocket  = null;
         this.connected    = false;
+        this._cache       = {};   // current TV state — used to skip redundant writes
         this.wasConnected = false;   // true only after at least one successful connection
         this.reconnTimer  = null;
         this.pollTimer    = null;
@@ -347,8 +348,10 @@ class LgtvFullAdapter extends utils.Adapter {
     /**
      * Set a state with ack=true and publish to MQTT in one call.
      * All state updates from the TV go through this helper.
+     * Also populates _cache so onStateChange can skip redundant writes.
      */
     _set(id, val) {
+        this._cache[id] = val;
         this.setStateAsync(id, val, true);
         this.mqttPublish(id, val);
     }
@@ -751,9 +754,12 @@ class LgtvFullAdapter extends utils.Adapter {
         // ssap://input/sendButton and getPointerInputService are both 404 on webOS 24.
         // Dismissal relies entirely on isSysReq:true + timeout:0 mechanism.
 
+        // timeout: 1 → dialog auto-closes after 1 second, onclose fires Luna call.
+        // timeout: 0 means "wait forever" — user would have to click OK manually.
+        // isSysReq: true → system-level alert, minimal visual footprint on webOS 24.
         this.tv.request('ssap://system.notifications/createAlert', {
-            title:    ' ',           // must be non-empty — single space is accepted
-            message:  ' ',           // must be non-empty — single space is accepted
+            title:    ' ',
+            message:  ' ',
             modal:    false,
             isSysReq: true,
             buttons:  [{ label: 'OK', focus: true, buttonType: 'ok',
@@ -761,7 +767,7 @@ class LgtvFullAdapter extends utils.Adapter {
             onclose:  { uri: lunaUri, params: lunaParams },
             onfail:   { uri: lunaUri, params: lunaParams },
             type:     'confirm',
-            timeout:  0,
+            timeout:  1,            // auto-close after 1 s → onclose applies setting
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message || alertErr) : 'ok'}"`);
@@ -769,27 +775,17 @@ class LgtvFullAdapter extends utils.Adapter {
             if (cb) cb(null, {});
 
             if (!alertId) {
-                // createAlert itself failed — fall back to direct SSAP (popup may appear)
-                this.log.warn(`createAlert failed (${alertErr && alertErr.message}), falling back to direct setSystemSettings`);
+                this.log.warn(`createAlert failed (${alertErr && alertErr.message}), direct SSAP fallback`);
                 this.tv.request('ssap://settings/setSystemSettings', { category, settings }, (e, r) => {
                     this.log.debug(`direct setSystemSettings: ${e ? e.message : (r && r.returnValue)}`);
                 });
                 return;
             }
 
-            // Pointer socket: only available on older webOS. On webOS 24 this is a no-op.
+            // Older webOS: pointer socket can confirm the dialog immediately
             if (this.inputSocket) {
-                setTimeout(() => {
-                    this.log.debug('pressEnter: via inputSocket');
-                    this.inputSocket.send('button', { name: 'ENTER' });
-                }, 10);
+                setTimeout(() => { this.inputSocket.send('button', { name: 'ENTER' }); }, 10);
             }
-            // closeAlert: ignored on webOS 24, but try anyway for older webOS compatibility
-            setTimeout(() => {
-                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
-                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
-                });
-            }, 50);
         });
     }
 
@@ -834,6 +830,18 @@ class LgtvFullAdapter extends utils.Adapter {
         if (!state || state.ack) return;
         const key = id.split('.').slice(2).join('.');
         const val = state.val;
+
+        // Skip if TV already has this exact value — prevents dialogs from MQTT
+        // systems that repeatedly publish the same state (e.g. Loxone scenes).
+        // power and info.* are exempt: those always need to be processed.
+        if (!key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote')) {
+            if (this._cache[key] !== undefined && this._cache[key] == val) {
+                this.log.debug(`Command: ${key} = ${val} (skip — already set)`);
+                this.setStateAsync(id, val, true); // ack the state so it turns green
+                return;
+            }
+        }
+
         this.log.debug(`Command: ${key} = ${val}`);
 
         if (key === 'power') {
