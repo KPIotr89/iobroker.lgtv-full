@@ -321,6 +321,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this.inputSocket  = null;
         this.connected    = false;
         this._cache       = {};   // current TV state — used to skip redundant writes
+        this._cmdSent     = {};   // {key: {val, ts}} — last command sent, for throttling
         this.wasConnected = false;   // true only after at least one successful connection
         this.reconnTimer  = null;
         this.pollTimer    = null;
@@ -831,15 +832,30 @@ class LgtvFullAdapter extends utils.Adapter {
         const key = id.split('.').slice(2).join('.');
         const val = state.val;
 
-        // Skip if TV already has this exact value — prevents dialogs from MQTT
-        // systems that repeatedly publish the same state (e.g. Loxone scenes).
-        // power and info.* are exempt: those always need to be processed.
+        // Skip redundant writes to prevent dialogs from MQTT systems (e.g. Loxone)
+        // that repeatedly publish the same state every ~60 seconds.
+        // power / info.* / remote.* are always processed.
         if (!key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote')) {
+            const now = Date.now();
+
+            // Layer 1: TV already confirmed this value — definitive no-op
             if (this._cache[key] !== undefined && this._cache[key] == val) {
-                this.log.debug(`Command: ${key} = ${val} (skip — already set)`);
-                this.setStateAsync(id, val, true); // ack the state so it turns green
+                this.log.debug(`Command: ${key} = ${val} (skip — TV already at this value)`);
+                this.setStateAsync(id, val, true);
                 return;
             }
+
+            // Layer 2: We already sent this exact value recently (55 s window).
+            // Catches the case where the mode fails to apply (e.g. DV mode without DV signal)
+            // so the TV reverts and Loxone retries — we don't want a new dialog every minute.
+            const last = this._cmdSent[key];
+            if (last && last.val == val && now - last.ts < 55000) {
+                this.log.debug(`Command: ${key} = ${val} (skip — sent ${Math.round((now - last.ts) / 1000)}s ago)`);
+                this.setStateAsync(id, val, true);
+                return;
+            }
+
+            this._cmdSent[key] = { val, ts: now };
         }
 
         this.log.debug(`Command: ${key} = ${val}`);
