@@ -378,21 +378,6 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ---
 
-## 🧠 webOS 24 (LG G4 / 2024 models) — technical notes
-
-webOS 24 (webOS 8.x) removed several SSAP endpoints that older firmwares had:
-
-| Endpoint | webOS 6–7 | webOS 24 |
-|----------|-----------|----------|
-| `ssap://settings/setSystemSettings` | ✅ works silently | ⚠️ shows "unknown message OK" popup |
-| `ssap://com.webos.service.networkinput/getPointerInputService` | ✅ | ❌ 404 |
-| `ssap://input/sendButton` | ✅ | ❌ 404 |
-| `ssap://system.notifications/closeAlert` | ✅ closes alert | ❌ ignored |
-
-**How this adapter applies settings on webOS 24** — instead of calling `setSystemSettings` directly (which triggers the popup), the adapter uses `createAlert` with an `onclose` callback pointing to the Luna service `luna://com.webos.settingsservice/setSystemSettings`. The TV executes the setting in its own system context — no external SSAP call, no popup. With `isSysReq: true` + `timeout: 0` the dialog auto-closes in one frame with no user interaction required.
-
----
-
 ## 📝 Changelog
 
 ### 1.2.29
