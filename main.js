@@ -740,12 +740,15 @@ class LgtvFullAdapter extends utils.Adapter {
         const pressEnter = () => {
             if (!this.connected) return;
             if (this.inputSocket) {
-                this.log.debug('pressEnter: via inputSocket (pointer) ENTER');
+                // Pointer socket: ENTER confirms the focused OK button directly
+                this.log.debug('pressEnter: via inputSocket ENTER');
                 this.inputSocket.send('button', { name: 'ENTER' });
             } else {
-                // Via SSAP: center/OK button is CLICK, not ENTER (ENTER is for text fields)
-                this.log.debug('pressEnter: via SSAP sendButton CLICK');
-                this.tv.request('ssap://input/sendButton', { name: 'CLICK' });
+                // SSAP: only BACK is accepted by webOS 24 when a modal is active.
+                // With modal:true the TV captures BACK inside the modal — it never
+                // reaches the app beneath, so no UI interference occurs.
+                this.log.debug('pressEnter: via SSAP BACK (modal captures it, safe)');
+                this.tv.request('ssap://input/sendButton', { name: 'BACK' });
             }
         };
 

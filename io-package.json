@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.25",
+    "version": "1.2.26",
     "news": {
+      "1.2.26": {
+        "en": "Fix: use BACK via SSAP when pointer socket unavailable — webOS 24 blocks CLICK/ENTER via SSAP on modals but allows BACK; modal:true captures BACK internally so app is never affected",
+        "pl": "Poprawka: BACK przez SSAP gdy pointer socket niedostępny — webOS 24 blokuje CLICK/ENTER przez SSAP na modalach ale pozwala BACK; modal:true przechwytuje BACK wewnętrznie, apka nie jest dotknięta"
+      },
       "1.2.25": {
         "en": "Fix: use CLICK instead of ENTER for SSAP sendButton — CLICK is the OK/center button via SSAP, ENTER is for text input only",
         "pl": "Poprawka: CLICK zamiast ENTER w SSAP sendButton — CLICK to przycisk OK/środkowy przez SSAP, ENTER tylko do pól tekstowych"
