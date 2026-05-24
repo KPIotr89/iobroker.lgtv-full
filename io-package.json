@@ -1,8 +1,24 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.27",
+    "version": "1.2.31",
     "news": {
+      "1.2.31": {
+        "en": "Fix: two-layer deduplication — skip write if TV already confirmed value, plus 55s throttle to suppress repeated MQTT commands (e.g. Loxone scene backup); timeout:1 in createAlert so dialog auto-closes",
+        "pl": "Poprawka: dwuwarstwowa deduplikacja — pomija zapis jeśli TV potwierdził już wartość, plus throttle 55s tłumi powtarzające się komendy MQTT (np. backup sceny Loxone); timeout:1 w createAlert — dialog sam się zamyka"
+      },
+      "1.2.30": {
+        "en": "Fix: state deduplication cache — skip createAlert if TV already at requested value; timeout:0 changed to timeout:1 so dialog auto-dismisses without user click",
+        "pl": "Poprawka: cache deduplikacji stanów — pomija createAlert jeśli TV już w żądanym trybie; timeout:0 zmieniony na timeout:1 — dialog zamyka się sam bez klikania"
+      },
+      "1.2.29": {
+        "en": "Fix critical: createAlert rejected with 'Message can't be empty' on webOS 24 when title/message were empty strings — restored single-space values; removed 404 sendButton calls",
+        "pl": "Poprawka krytyczna: createAlert odrzucany z 'Message can't be empty' na webOS 24 gdy title/message były pustymi stringami — przywrócono spacje; usunięto wywołania sendButton (404)"
+      },
+      "1.2.28": {
+        "en": "Fix: add CONTROL_MOUSE_AND_KEYBOARD to unsigned permissions; isSysReq:true + modal:false in createAlert for webOS 24 system-level auto-dismiss",
+        "pl": "Poprawka: CONTROL_MOUSE_AND_KEYBOARD w uprawnieniach unsigned; isSysReq:true + modal:false w createAlert dla systemowego auto-zamknięcia na webOS 24"
+      },
       "1.2.27": {
         "en": "Debug: log exact pointer socket error response to diagnose why getPointerInputService fails after re-pairing",
         "pl": "Debug: logowanie dokładnej odpowiedzi błędu pointer socketa — diagnoza dlaczego getPointerInputService nie działa po ponownym parowaniu"
