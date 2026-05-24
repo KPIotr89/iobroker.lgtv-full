@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/KPIotr89/iobroker.lgtv-full/releases"><img src="https://img.shields.io/github/v/release/KPIotr89/iobroker.lgtv-full?style=flat-square&color=blue" alt="Release" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D14-brightgreen?style=flat-square" alt="Node.js" />
-  <img src="https://img.shields.io/badge/webOS-6%2B-red?style=flat-square" alt="webOS" />
+  <img src="https://img.shields.io/badge/webOS-6%2B%20%7C%2024-red?style=flat-square" alt="webOS" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/LG%20OLED-G4%20tested-blueviolet?style=flat-square" alt="Tested on LG G4" />
 </p>
@@ -353,6 +353,13 @@ This means the adapter was paired with an older manifest that didn't include `WR
 </details>
 
 <details>
+<summary><strong>"Unknown message OK" popup appears when changing picture / sound mode (webOS 24)</strong></summary>
+
+This popup was shown by webOS 24 (LG G4 and newer) when an external app called `ssap://settings/setSystemSettings` directly. The adapter uses a different approach since v1.2.20: it triggers settings via a Luna service callback inside `createAlert`, bypassing the popup entirely. If you still see the popup, make sure you are running v1.2.29 or later. Check the debug log for `createAlert cb: alertId=` — if you see `alertId=none` the createAlert call failed and the adapter fell back to direct SSAP.
+
+</details>
+
+<details>
 <summary><strong>Picture mode does not change (HDR / Dolby Vision modes)</strong></summary>
 
 HDR and Dolby Vision picture modes are only available when the TV receives a compatible signal (e.g. HDR10 or Dolby Vision content from HDMI). The TV will silently ignore the command if the current source doesn't support that mode. This is a TV firmware limitation, not an adapter issue.
@@ -371,7 +378,48 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ---
 
+## 🧠 webOS 24 (LG G4 / 2024 models) — technical notes
+
+webOS 24 (webOS 8.x) removed several SSAP endpoints that older firmwares had:
+
+| Endpoint | webOS 6–7 | webOS 24 |
+|----------|-----------|----------|
+| `ssap://settings/setSystemSettings` | ✅ works silently | ⚠️ shows "unknown message OK" popup |
+| `ssap://com.webos.service.networkinput/getPointerInputService` | ✅ | ❌ 404 |
+| `ssap://input/sendButton` | ✅ | ❌ 404 |
+| `ssap://system.notifications/closeAlert` | ✅ closes alert | ❌ ignored |
+
+**How this adapter applies settings on webOS 24** — instead of calling `setSystemSettings` directly (which triggers the popup), the adapter uses `createAlert` with an `onclose` callback pointing to the Luna service `luna://com.webos.settingsservice/setSystemSettings`. The TV executes the setting in its own system context — no external SSAP call, no popup. With `isSysReq: true` + `timeout: 0` the dialog auto-closes in one frame with no user interaction required.
+
+---
+
 ## 📝 Changelog
+
+### 1.2.29
+- **Fix:** Critical bug in v1.2.28 — `createAlert` rejected by webOS 24 with `"Message can't be empty"` when `title`/`message` were empty strings; restored single-space values
+- **Fix:** Removed all `ssap://input/sendButton` calls (404 on webOS 24)
+- Simplified pointer socket: silent no-op on webOS 24 (404), works on older webOS as before
+- Added fallback: if `createAlert` fails for any reason, falls back to direct `ssap://settings/setSystemSettings`
+
+### 1.2.28
+- Add `CONTROL_MOUSE_AND_KEYBOARD` and `CONTROL_INPUT_TEXT` to unsigned permissions
+- Improved pointer socket diagnostics: log actual error message instead of `{}`
+- `_setWithAlert`: added `isSysReq: true` + `modal: false` — system-level alert auto-dismisses on webOS 24
+- *(contained the empty title/message regression — superseded by 1.2.29)*
+
+### 1.2.27
+- Added diagnostic logging for pointer socket failures (revealed 404 on webOS 24)
+- `_setWithAlert`: multiple ENTER retries inside createAlert callback
+
+### 1.2.26
+- `_setWithAlert`: fallback from ENTER to BACK when modal is active
+
+### 1.2.25
+- Fix: move `setTimeout(pressEnter)` inside createAlert callback — it was firing before TV responded
+
+### 1.2.20 – 1.2.24
+- Pointer socket text-frame format (`type:button\nname:ENTER\n\n`)
+- Various timing and dismiss attempts for webOS 24 alert dialog
 
 ### 1.2.0
 - **Feature:** Built-in MQTT client — configure broker host, port, credentials and topic prefix directly in adapter settings
