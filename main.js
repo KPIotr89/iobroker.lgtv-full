@@ -509,6 +509,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
             const uri = PATHS[idx++];
             this.tv.request(uri, (err, res) => {
+                this.log.debug(`Pointer socket request ${uri}: err=${JSON.stringify(err)} res=${JSON.stringify(res)}`);
                 if (err || !res || !res.socketPath) { tryNext(); return; }
                 const sock = new WebSocket(res.socketPath, { rejectUnauthorized: false });
                 sock.on('open',  ()  => {
