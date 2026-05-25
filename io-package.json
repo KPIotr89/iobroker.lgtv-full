@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.33",
+    "version": "1.2.34",
     "news": {
+      "1.2.34": {
+        "en": "Fix: restore closeAlert at 20ms — confirmed by logs that isSysReq+timeout:0 alone does NOT auto-dismiss on current webOS 24 firmware; closeAlert dismisses dialog invisibly, onclose Luna callback applies setting",
+        "pl": "Poprawka: przywrócono closeAlert po 20ms — logi potwierdziły że isSysReq+timeout:0 samo NIE zamyka dialogu na aktualnym firmware webOS 24; closeAlert zamyka dialog niewidocznie, callback onclose Luna aplikuje ustawienie"
+      },
       "1.2.33": {
         "en": "Fix: remove explicit closeAlert — rely purely on isSysReq:true + modal:false + timeout:0 for one-frame auto-dismiss on webOS 24; settings apply via onclose Luna callback without any visible dialog",
         "pl": "Poprawka: usunięto closeAlert — oparto się wyłącznie na isSysReq:true + modal:false + timeout:0 dla auto-zamknięcia w jednej klatce na webOS 24; ustawienia stosowane przez callback onclose Luna bez widocznego dialogu"

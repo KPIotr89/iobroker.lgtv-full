@@ -755,10 +755,12 @@ class LgtvFullAdapter extends utils.Adapter {
         // ssap://input/sendButton and getPointerInputService are both 404 on webOS 24.
         // Dismissal relies entirely on isSysReq:true + timeout:0 mechanism.
 
-        // webOS 24: isSysReq:true + modal:false + timeout:0 causes the dialog to
-        // auto-dismiss in one render frame via the onclose Luna callback.
-        // No closeAlert or button press needed — the TV handles it internally.
-        // The brief flash (one frame ~16ms) is a known webOS 24 firmware behaviour.
+        // webOS 24 strategy (confirmed in logs):
+        //   - createAlert with isSysReq:true returns alertId immediately
+        //   - closeAlert at 20ms dismisses the dialog before user sees it
+        //   - onclose callback fires the Luna setSystemSettings call
+        //   - onClick is belt-and-suspenders if user somehow sees and clicks OK
+        //   - timeout:0 = wait indefinitely (do NOT use timeout:1 — dialog stays 1s)
         this.tv.request('ssap://system.notifications/createAlert', {
             title:    ' ',
             message:  ' ',
@@ -784,7 +786,15 @@ class LgtvFullAdapter extends utils.Adapter {
                 return;
             }
 
-            // Older webOS with pointer socket: press ENTER to confirm immediately
+            // Dismiss dialog at 20ms — before it renders on screen.
+            // onclose callback fires Luna setSystemSettings → setting applied.
+            setTimeout(() => {
+                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
+                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
+                });
+            }, 20);
+
+            // Older webOS with pointer socket: press ENTER as additional dismiss
             if (this.inputSocket) {
                 setTimeout(() => { this.inputSocket.send('button', { name: 'ENTER' }); }, 10);
             }
