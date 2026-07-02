@@ -322,9 +322,11 @@ class LgtvFullAdapter extends utils.Adapter {
         this.connected    = false;
         this._cache       = {};   // current TV state — used to skip redundant writes
         this._cmdSent     = {};   // {key: {val, ts}} — last command sent, for throttling
-        this.wasConnected = false;   // true only after at least one successful connection
-        this.reconnTimer  = null;
-        this.pollTimer    = null;
+        this.wasConnected  = false;   // true only after at least one successful connection
+        this.reconnTimer   = null;
+        this.pollTimer     = null;
+        this._reconnDelay  = 10;      // current retry interval in seconds (exponential backoff)
+        this._reconnCount  = 0;       // failed attempts since last successful connection
         this.inputs       = {};
         this.channels     = [];
 
@@ -429,22 +431,21 @@ class LgtvFullAdapter extends utils.Adapter {
         const proto   = useSSL ? 'wss' : 'ws';
         const url     = `${proto}://${this.config.host}:${port}`;
 
-        // Only log at info on the very first attempt; reconnect attempts are debug-only
-        if (!this.wasConnected && !this._connectAttempts) {
+        // Log only on first-ever connect and first reconnect attempt; silent during backoff
+        if (this._reconnCount === 0) {
             this.log.info(`Connecting to TV: ${url}`);
-        } else {
-            this.log.debug(`Reconnecting to TV: ${url}`);
         }
-        this._connectAttempts = (this._connectAttempts || 0) + 1;
+        // subsequent attempts: logged via on('close') when delay changes
 
         this.tv = new LgTvSocket({ url, keyFile, timeout: 5000 });
         this.tv._logger = (msg) => this.log.debug(msg);
 
         this.tv.on('connect', () => {
             this.log.info('Connected to LG TV!');
-            this.connected       = true;
-            this.wasConnected    = true;
-            this._connectAttempts = 0;  // reset so next disconnect logs at info again
+            this.connected      = true;
+            this.wasConnected   = true;
+            this._reconnDelay   = 10;   // reset backoff for next offline period
+            this._reconnCount   = 0;
             this._set('info.connection', true);
             this._set('power', true);
             this.openInputSocket();
@@ -464,31 +465,43 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('close', () => {
-            const sec = parseInt(this.config.reconnectInterval) || 10;
             if (this.wasConnected) {
-                // We had a real connection — TV turned off or network dropped
+                // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
-                this.wasConnected = false;
+                this.wasConnected   = false;
+                this._reconnDelay   = 10;
+                this._reconnCount   = 0;
                 this._set('power', false);
             } else {
-                // Failed reconnect attempt while TV is off — don't touch power state
-                // so the user's WoL command (power=true) isn't overwritten
-                this.log.debug(`TV not reachable — retry in ${sec}s`);
+                // Failed reconnect attempt while TV is off.
+                // Exponential backoff: 10s → 20s → 40s → 80s → 160s → 300s (5 min cap).
+                // Log only on the first attempt and whenever the interval changes.
+                this._reconnCount++;
+                const prevDelay     = this._reconnDelay;
+                this._reconnDelay   = Math.min(this._reconnDelay * 2, 300);
+                if (this._reconnCount === 1) {
+                    this.log.debug(`TV offline — retry in ${prevDelay}s`);
+                } else if (this._reconnDelay !== prevDelay) {
+                    this.log.debug(`TV still offline — backing off to ${this._reconnDelay}s`);
+                }
+                // else: silent until interval changes again
             }
             this.connected   = false;
             this.inputSocket = null;
             if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
             this._set('info.connection', false);
-            this.reconnTimer = setTimeout(() => this.connect(), sec * 1000);
+            this.reconnTimer = setTimeout(() => this.connect(), this._reconnDelay * 1000);
         });
 
         this.tv.on('error', (err) => {
             if (!this.connected) {
-                // Any error during a connection attempt (TV off, standby, WebSocket rejected) —
-                // log at debug only, on('close') already handles the retry logic
-                this.log.debug(`TV connection attempt failed: ${err && err.message ? err.message : err}`);
+                // Connection attempt errors: only log the first one (TV off / standby).
+                // on('close') handles the retry and backoff logging.
+                if (this._reconnCount === 0) {
+                    this.log.debug(`TV connection failed: ${err && err.message ? err.message : err}`);
+                }
             } else {
-                // Error on an established connection — worth showing
+                // Error on an established connection — always log
                 this.log.warn(`Connection error: ${err && err.message ? err.message : err}`);
             }
         });
