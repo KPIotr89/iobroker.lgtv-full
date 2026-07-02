@@ -301,7 +301,12 @@ lgtv/set/picture/modeNum         ← 4
 lgtv/set/picture/backlight       ← 60
 lgtv/set/audio/soundMode         ← aiSoundPro
 lgtv/set/power                   ← true / false
+lgtv/set/notify                  ← Someone at the gate 🔔
 ```
+
+> `notify` shows a native webOS toast in the corner of the screen (auto-dismisses after ~5 s).
+> It bypasses command deduplication — publishing the same text twice shows two toasts.
+> Publish **non-retained** so old notifications don't pop up when the TV turns on.
 
 ### Loxone / LoxBerry integration
 
@@ -379,6 +384,16 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 ---
 
 ## 📝 Changelog
+
+### 1.2.36
+- **Feature:** New `notify` state — native toast notification on the TV screen (`ssap://system.notifications/createToast`)
+- Writable over MQTT at `lgtv/set/notify` — e.g. from Loxone: doorbell, alarms, appliances
+- Bypasses command deduplication so repeated identical messages always display
+
+### 1.2.30 – 1.2.35
+- Two-layer command deduplication (TV state cache + 55 s throttle) against MQTT spam
+- `closeAlert` at 20 ms confirmed required on webOS 24 (`isSysReq`+`timeout:0` alone insufficient)
+- Exponential backoff reconnect (10 s → 300 s) — no log spam while the TV is off
 
 ### 1.2.29
 - **Fix:** Critical bug in v1.2.28 — `createAlert` rejected by webOS 24 with `"Message can't be empty"` when `title`/`message` were empty strings; restored single-space values

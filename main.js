@@ -409,6 +409,8 @@ class LgtvFullAdapter extends utils.Adapter {
         await ch('media', 'Media');
         await st('media.state', 'Playback state', 'string', 'media.state', false);
 
+        await st('notify', 'Show toast notification on TV', 'string', 'text', true);
+
         await ch('remote', 'Remote Control');
         for (const btn of REMOTE_BUTTONS) {
             await this.setObjectAsync(`remote.${btn}`, {
@@ -858,8 +860,9 @@ class LgtvFullAdapter extends utils.Adapter {
 
         // Skip redundant writes to prevent dialogs from MQTT systems (e.g. Loxone)
         // that repeatedly publish the same state every ~60 seconds.
-        // power / info.* / remote.* are always processed.
-        if (!key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote')) {
+        // power / info.* / remote.* / notify are always processed
+        // (notify must bypass dedup — same doorbell text twice = two toasts).
+        if (!key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote') && key !== 'notify') {
             const now = Date.now();
 
             // Layer 1: TV already confirmed this value — definitive no-op
@@ -1004,6 +1007,21 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.tv.request('ssap://system.launcher/launch', { id: val });
                 this._set(key, val);
                 break;
+            case 'notify': {
+                // Native webOS toast — top-right corner, auto-dismisses after ~5s.
+                // Uses createToast (not createAlert) — no "unknown message OK" issue on webOS 24.
+                const text = String(val || '').trim();
+                if (!text) break;
+                this.tv.request('ssap://system.notifications/createToast',
+                    { message: text.substring(0, 120) },
+                    (err, res) => {
+                        if (err) this.log.warn(`Toast error: ${err.message || err}`);
+                        else     this.log.debug(`Toast shown: toastId=${(res && res.toastId) || '?'}`);
+                    }
+                );
+                this._set(key, text);
+                break;
+            }
             default:
                 if (key.startsWith('remote.')) {
                     const btn = key.replace('remote.', '');

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.35",
+    "version": "1.2.36",
     "news": {
+      "1.2.36": {
+        "en": "Feature: new 'notify' state — native toast notification on the TV screen via createToast (no webOS 24 popup issue); writable over MQTT at lgtv/set/notify (e.g. from Loxone: doorbell, alarms, appliances); bypasses command deduplication so repeated identical messages always display",
+        "pl": "Nowość: stan 'notify' — natywne powiadomienie toast na ekranie TV przez createToast (bez problemu popupów webOS 24); zapis przez MQTT lgtv/set/notify (np. z Loxone: dzwonek, alarmy, AGD); z pominięciem deduplikacji — powtórzone identyczne komunikaty zawsze się wyświetlą"
+      },
       "1.2.35": {
         "en": "Improvement: exponential backoff when TV is off — retries at 10s→20s→40s→80s→300s, logging only on first attempt and when interval changes; no more log spam every 10 seconds",
         "pl": "Poprawa: exponential backoff gdy TV jest wyłączony — retry co 10s→20s→40s→80s→300s, log tylko przy pierwszej próbie i zmianie interwału; koniec ze spamem logów co 10 sekund"
