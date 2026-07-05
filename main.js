@@ -327,6 +327,10 @@ class LgtvFullAdapter extends utils.Adapter {
         this.pollTimer     = null;
         this._reconnDelay  = 10;      // current retry interval in seconds (exponential backoff)
         this._reconnCount  = 0;       // failed attempts since last successful connection
+        this._connecting   = false;   // connection attempt currently in flight
+        this._lastForced   = 0;       // ts of last command-triggered connect attempt
+        this._fastRetryUntil = 0;     // ts until which we poll every 5s (after WoL)
+        this._warnedIgnore = false;   // warn once per offline period about ignored commands
         this.inputs       = {};
         this.channels     = [];
 
@@ -426,6 +430,15 @@ class LgtvFullAdapter extends utils.Adapter {
 
     connect() {
         if (this.reconnTimer) { clearTimeout(this.reconnTimer); this.reconnTimer = null; }
+        this._connecting = true;
+
+        // Detach handlers from a previous socket so a late 'close' event from it
+        // cannot schedule a duplicate reconnect loop.
+        if (this.tv) {
+            this.tv._onClose = () => {};
+            this.tv._onError = () => {};
+            try { this.tv.disconnect(); } catch (e) { /* ignore */ }
+        }
 
         const keyFile = path.join(utils.getAbsoluteInstanceDataDir(this), 'lgtvkey.txt');
         const useSSL  = this.config.useSSL !== false;
@@ -446,8 +459,11 @@ class LgtvFullAdapter extends utils.Adapter {
             this.log.info('Connected to LG TV!');
             this.connected      = true;
             this.wasConnected   = true;
+            this._connecting    = false;
             this._reconnDelay   = 10;   // reset backoff for next offline period
             this._reconnCount   = 0;
+            this._fastRetryUntil = 0;
+            this._warnedIgnore  = false;
             this._set('info.connection', true);
             this._set('power', true);
             this.openInputSocket();
@@ -467,6 +483,7 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('close', () => {
+            this._connecting = false;
             if (this.wasConnected) {
                 // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
@@ -480,11 +497,17 @@ class LgtvFullAdapter extends utils.Adapter {
                 // Log only on the first attempt and whenever the interval changes.
                 this._reconnCount++;
                 const prevDelay     = this._reconnDelay;
-                this._reconnDelay   = Math.min(this._reconnDelay * 2, 300);
-                if (this._reconnCount === 1) {
-                    this.log.debug(`TV offline — retry in ${prevDelay}s`);
-                } else if (this._reconnDelay !== prevDelay) {
-                    this.log.debug(`TV still offline — backing off to ${this._reconnDelay}s`);
+                if (Date.now() < this._fastRetryUntil) {
+                    // WoL sent moments ago — TV is booting, poll every 5s
+                    this._reconnDelay = 5;
+                    if (prevDelay !== 5) this.log.debug('WoL fast-retry window — polling every 5s');
+                } else {
+                    this._reconnDelay = Math.min(this._reconnDelay < 10 ? 10 : this._reconnDelay * 2, 300);
+                    if (this._reconnCount === 1) {
+                        this.log.debug(`TV offline — retry in ${prevDelay}s`);
+                    } else if (this._reconnDelay !== prevDelay) {
+                        this.log.debug(`TV still offline — backing off to ${this._reconnDelay}s`);
+                    }
                 }
                 // else: silent until interval changes again
             }
@@ -513,6 +536,21 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.connect();
+    }
+
+    /**
+     * Try to connect immediately, outside the backoff schedule.
+     * Called when a command arrives while disconnected (the TV is probably on)
+     * and right after sending WoL. Guarded: max one forced attempt per 5s,
+     * never while another attempt is already in flight.
+     */
+    _connectNow(reason) {
+        if (this.connected || this._connecting) return;
+        const now = Date.now();
+        if (now - this._lastForced < 5000) return;
+        this._lastForced = now;
+        this.log.debug(`Immediate reconnect (${reason})`);
+        this.connect();
     }
 
     openInputSocket() {
@@ -897,6 +935,9 @@ class LgtvFullAdapter extends utils.Adapter {
                         if (err) this.log.error(`WoL error: ${err}`);
                         else     this.log.info('WoL packet sent');
                     });
+                    // TV boots in ~10-15s — poll every 5s for the next 60s
+                    this._fastRetryUntil = Date.now() + 60000;
+                    this._connectNow('WoL');
                 } else {
                     this.log.warn('No MAC address configured — set it in adapter settings');
                 }
@@ -904,7 +945,22 @@ class LgtvFullAdapter extends utils.Adapter {
             return;
         }
 
-        if (!this.connected) { this.log.warn(`TV not connected, ignoring: ${key}`); return; }
+        if (!this.connected) {
+            // Command while disconnected — the TV was probably just turned on,
+            // so try to connect right away instead of waiting for the backoff slot.
+            // The command itself is not queued; sources like Loxone re-send periodically.
+            if (this._warnedIgnore) {
+                this.log.debug(`TV not connected, ignoring: ${key}`);
+            } else {
+                this.log.warn(`TV not connected, ignoring: ${key} — forcing reconnect`);
+                this._warnedIgnore = true;
+            }
+            // Command was NOT applied — remove it from the throttle so a re-send
+            // right after reconnecting is not skipped as a duplicate.
+            delete this._cmdSent[key];
+            this._connectNow('command while disconnected');
+            return;
+        }
 
         switch (key) {
             case 'screenOff':

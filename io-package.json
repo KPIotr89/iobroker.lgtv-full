@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.36",
+    "version": "1.2.37",
     "news": {
+      "1.2.37": {
+        "en": "Fix: TV turned on in the morning was not picked up until the next backoff slot (up to 5 min) — an incoming command while disconnected now forces an immediate reconnect attempt (5s guard), WoL opens a 60s fast-retry window polling every 5s, ignored commands are removed from the throttle so re-sends apply right after reconnecting, stale socket handlers are detached to prevent duplicate reconnect loops",
+        "pl": "Poprawka: TV włączony rano był wykrywany dopiero w kolejnym oknie backoffu (do 5 min) — komenda przychodząca przy braku połączenia wymusza natychmiastową próbę połączenia (guard 5 s), WoL otwiera 60-sekundowe okno szybkich prób co 5 s, zignorowane komendy usuwane z throttle (powtórka działa zaraz po połączeniu), odpinanie handlerów starego socketa zapobiega podwójnym pętlom reconnect"
+      },
       "1.2.36": {
         "en": "Feature: new 'notify' state — native toast notification on the TV screen via createToast (no webOS 24 popup issue); writable over MQTT at lgtv/set/notify (e.g. from Loxone: doorbell, alarms, appliances); bypasses command deduplication so repeated identical messages always display",
         "pl": "Nowość: stan 'notify' — natywne powiadomienie toast na ekranie TV przez createToast (bez problemu popupów webOS 24); zapis przez MQTT lgtv/set/notify (np. z Loxone: dzwonek, alarmy, AGD); z pominięciem deduplikacji — powtórzone identyczne komunikaty zawsze się wyświetlą"

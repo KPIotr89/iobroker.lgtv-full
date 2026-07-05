@@ -385,6 +385,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.37
+- **Fix:** Incoming command while disconnected forces an immediate reconnect — a TV turned on in the morning connects within seconds instead of waiting for the next backoff slot (up to 5 min)
+- WoL opens a 60 s fast-retry window (polling every 5 s) while the TV boots
+- Ignored commands are removed from the 55 s throttle, so a re-send applies right after reconnecting
+- Stale socket handlers are detached before a new connection — prevents duplicate reconnect loops
+
 ### 1.2.36
 - **Feature:** New `notify` state — native toast notification on the TV screen (`ssap://system.notifications/createToast`)
 - Writable over MQTT at `lgtv/set/notify` — e.g. from Loxone: doorbell, alarms, appliances
