@@ -385,6 +385,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.38
+- **Fix:** After a cold boot (night in deep standby) webOS silently drops or overrides early settings writes — the TV would ignore the morning scene until power-cycled
+- Picture/sound writes are now verified against TV push confirmations and invisibly re-sent (up to 4 attempts at 2/4/8/15 s) within 2 minutes of connecting
+- New `_confirmed` store tracks only TV-reported values (optimistic writes no longer mask verification)
+
 ### 1.2.37
 - **Fix:** Incoming command while disconnected forces an immediate reconnect — a TV turned on in the morning connects within seconds instead of waiting for the next backoff slot (up to 5 min)
 - WoL opens a 60 s fast-retry window (polling every 5 s) while the TV boots

@@ -331,6 +331,9 @@ class LgtvFullAdapter extends utils.Adapter {
         this._lastForced   = 0;       // ts of last command-triggered connect attempt
         this._fastRetryUntil = 0;     // ts until which we poll every 5s (after WoL)
         this._warnedIgnore = false;   // warn once per offline period about ignored commands
+        this._confirmed    = {};      // values confirmed by TV push (not optimistic)
+        this._connectedAt  = 0;       // ts of last successful connection
+        this._verifyTimers = {};      // key → timer for write verification retries
         this.inputs       = {};
         this.channels     = [];
 
@@ -361,6 +364,45 @@ class LgtvFullAdapter extends utils.Adapter {
         this._cache[id] = val;
         this.setStateAsync(id, val, true);
         this.mqttPublish(id, val);
+    }
+
+    /**
+     * Like _set, but also marks the value as CONFIRMED by the TV.
+     * Used only in push-subscription / getSystemSettings handlers, i.e. for
+     * values the TV itself reported — never for optimistic writes.
+     * _verifyApplied checks against this store.
+     */
+    _setConfirmed(id, val) {
+        this._confirmed[id] = val;
+        this._set(id, val);
+    }
+
+    /**
+     * Outcome-based retry for settings writes.
+     * After a cold boot (a night in deep standby) webOS silently drops or
+     * overrides early setSystemSettings writes while its services warm up —
+     * user-visible as "TV ignores the morning scene until power-cycled".
+     * Check the TV-confirmed state a few seconds after each write and
+     * re-send invisibly (createAlert) if it did not stick. Active only for
+     * 2 minutes after (re)connecting. A newer write to the same key
+     * replaces a pending verification (latest value wins).
+     */
+    _verifyApplied(key, val, resend, attempt = 1) {
+        const DELAYS = [2000, 4000, 8000, 15000];
+        if (Date.now() - this._connectedAt > 120000) return;
+        if (this._verifyTimers[key]) clearTimeout(this._verifyTimers[key]);
+        this._verifyTimers[key] = setTimeout(() => {
+            delete this._verifyTimers[key];
+            if (!this.connected) return;
+            if (this._confirmed[key] == val) return;   // TV confirmed via push
+            if (attempt >= DELAYS.length) {
+                this.log.warn(`${key} = ${val} not applied after ${DELAYS.length} attempts (TV reports "${this._confirmed[key]}")`);
+                return;
+            }
+            this.log.debug(`Verify: ${key} = ${val} not confirmed yet — invisible resend (attempt ${attempt + 1}/${DELAYS.length})`);
+            resend();
+            this._verifyApplied(key, val, resend, attempt + 1);
+        }, DELAYS[attempt - 1]);
     }
 
     async createAllObjects() {
@@ -460,6 +502,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.connected      = true;
             this.wasConnected   = true;
             this._connecting    = false;
+            this._connectedAt   = Date.now();
             this._reconnDelay   = 10;   // reset backoff for next offline period
             this._reconnCount   = 0;
             this._fastRetryUntil = 0;
@@ -484,6 +527,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.tv.on('close', () => {
             this._connecting = false;
+            this._confirmed  = {};   // nothing is confirmed after a disconnect
             if (this.wasConnected) {
                 // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
@@ -648,15 +692,15 @@ class LgtvFullAdapter extends utils.Adapter {
                 const s = res.settings;
                 this.log.debug(`Picture push: ${JSON.stringify(s)}`);
                 if (s.pictureMode !== undefined) {
-                    this._set('picture.mode', s.pictureMode);
+                    this._setConfirmed('picture.mode', s.pictureMode);
                     const n = PICTURE_MODE_NUM[s.pictureMode];
                     if (n !== undefined) this._set('picture.modeNum', n);
                 }
-                if (s.brightness !== undefined) this._set('picture.brightness', parseInt(s.brightness));
-                if (s.contrast   !== undefined) this._set('picture.contrast',   parseInt(s.contrast));
-                if (s.backlight  !== undefined) this._set('picture.backlight',  parseInt(s.backlight));
-                if (s.color      !== undefined) this._set('picture.color',      parseInt(s.color));
-                if (s.sharpness  !== undefined) this._set('picture.sharpness',  parseInt(s.sharpness));
+                if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
+                if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
+                if (s.backlight  !== undefined) this._setConfirmed('picture.backlight',  parseInt(s.backlight));
+                if (s.color      !== undefined) this._setConfirmed('picture.color',      parseInt(s.color));
+                if (s.sharpness  !== undefined) this._setConfirmed('picture.sharpness',  parseInt(s.sharpness));
             }
         );
 
@@ -668,7 +712,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (res.settings.soundMode) {
                     const mode = res.settings.soundMode;
                     this.log.debug(`Sound mode push: ${mode}`);
-                    this._set('audio.soundMode', mode);
+                    this._setConfirmed('audio.soundMode', mode);
                     const n = SOUND_MODE_NUM[mode];
                     if (n !== undefined) this._set('audio.soundModeNum', n);
                 }
@@ -681,17 +725,17 @@ class LgtvFullAdapter extends utils.Adapter {
             if (!s) return;
             this.log.debug(`Picture settings received: ${JSON.stringify(s)}`);
             if (s.pictureMode !== undefined) {
-                this._set('picture.mode', s.pictureMode);
+                this._setConfirmed('picture.mode', s.pictureMode);
                 const n = PICTURE_MODE_NUM[s.pictureMode];
                 if (n !== undefined) this._set('picture.modeNum', n);
             }
-            if (s.brightness !== undefined) this._set('picture.brightness', parseInt(s.brightness));
-            if (s.contrast   !== undefined) this._set('picture.contrast',   parseInt(s.contrast));
+            if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
+            if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
             // oledLight is not allowed as a filter key on LG G4 — use backlight
             const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
-            if (bl !== undefined)            this._set('picture.backlight',  parseInt(bl));
-            if (s.color      !== undefined) this._set('picture.color',      parseInt(s.color));
-            if (s.sharpness  !== undefined) this._set('picture.sharpness',  parseInt(s.sharpness));
+            if (bl !== undefined)            this._setConfirmed('picture.backlight',  parseInt(bl));
+            if (s.color      !== undefined) this._setConfirmed('picture.color',      parseInt(s.color));
+            if (s.sharpness  !== undefined) this._setConfirmed('picture.sharpness',  parseInt(s.sharpness));
         };
 
         const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
@@ -712,7 +756,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (err) { this.log.debug(`getSystemSettings sound error: ${err.message}`); return; }
                 if (res && res.settings && res.settings.soundMode) {
                     const mode = res.settings.soundMode;
-                    this._set('audio.soundMode', mode);
+                    this._setConfirmed('audio.soundMode', mode);
                     const n = SOUND_MODE_NUM[mode];
                     if (n !== undefined) this._set('audio.soundModeNum', n);
                 }
@@ -986,6 +1030,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this._set(key, val);
                 const sn = SOUND_MODE_NUM[val];
                 if (sn !== undefined) this._set('audio.soundModeNum', sn);
+                this._verifyApplied('audio.soundMode', val, () => this._setSoundSetting({ soundMode: val }, () => {}));
                 break;
             }
             case 'audio.soundModeNum': {
@@ -996,6 +1041,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     );
                     this._set(key, val);
                     this._set('audio.soundMode', modeKey);
+                    this._verifyApplied('audio.soundMode', modeKey, () => this._setSoundSetting({ soundMode: modeKey }, () => {}));
                 }
                 break;
             }
@@ -1019,6 +1065,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this._set(key, val);
                 const pn = PICTURE_MODE_NUM[val];
                 if (pn !== undefined) this._set('picture.modeNum', pn);
+                this._verifyApplied('picture.mode', val, () => this._setPictureSetting({ pictureMode: val }, () => {}));
                 break;
             }
             case 'picture.modeNum': {
@@ -1029,6 +1076,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     });
                     this._set(key, val);
                     this._set('picture.mode', picKey);
+                    this._verifyApplied('picture.mode', picKey, () => this._setPictureSetting({ pictureMode: picKey }, () => {}));
                 }
                 break;
             }
@@ -1043,6 +1091,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
                 this._set(key, rounded);
+                this._verifyApplied(key, rounded, () => this._setPictureSetting({ [k]: String(rounded) }, () => {}));
                 break;
             }
             case 'input.current':
@@ -1112,6 +1161,7 @@ class LgtvFullAdapter extends utils.Adapter {
         try {
             if (this.reconnTimer) clearTimeout(this.reconnTimer);
             if (this.pollTimer)   clearInterval(this.pollTimer);
+            for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
             if (this.mqttClient)  this.mqttClient.end();
         } catch (e) { this.log.error(e); }

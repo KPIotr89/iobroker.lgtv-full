@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.37",
+    "version": "1.2.38",
     "news": {
+      "1.2.38": {
+        "en": "Fix: after a cold boot (night in deep standby) webOS silently drops or overrides early settings writes — picture/sound writes are now verified against TV push confirmations and invisibly re-sent (up to 4 attempts at 2/4/8/15s) within 2 minutes of connecting; no more power-cycling the TV to make the morning scene stick",
+        "pl": "Poprawka: po zimnym starcie (noc w głębokim standby) webOS po cichu gubi lub nadpisuje wczesne zapisy ustawień — zapisy obrazu/dźwięku są teraz weryfikowane z potwierdzeniami push z TV i niewidocznie ponawiane (do 4 prób co 2/4/8/15 s) w ciągu 2 minut od połączenia; koniec z wyłączaniem/włączaniem TV żeby poranna scena zadziałała"
+      },
       "1.2.37": {
         "en": "Fix: TV turned on in the morning was not picked up until the next backoff slot (up to 5 min) — an incoming command while disconnected now forces an immediate reconnect attempt (5s guard), WoL opens a 60s fast-retry window polling every 5s, ignored commands are removed from the throttle so re-sends apply right after reconnecting, stale socket handlers are detached to prevent duplicate reconnect loops",
         "pl": "Poprawka: TV włączony rano był wykrywany dopiero w kolejnym oknie backoffu (do 5 min) — komenda przychodząca przy braku połączenia wymusza natychmiastową próbę połączenia (guard 5 s), WoL otwiera 60-sekundowe okno szybkich prób co 5 s, zignorowane komendy usuwane z throttle (powtórka działa zaraz po połączeniu), odpinanie handlerów starego socketa zapobiega podwójnym pętlom reconnect"
