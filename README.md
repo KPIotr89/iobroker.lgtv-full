@@ -385,6 +385,10 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.40
+- **Fix:** States set before the MQTT client finished connecting (typically `info.connection` when the TV link came up first) were silently dropped and never re-published
+- All cached states are re-published on every MQTT (re)connect
+
 ### 1.2.39
 - **Fix:** Commands arriving milliseconds before the reconnect completed were lost forever (one-shot Loxone scenes fired shortly after TV-on detection)
 - Commands received while disconnected are queued (latest value per key, max age 2 min) and replayed 2 s after connecting through the normal dedup + verify path

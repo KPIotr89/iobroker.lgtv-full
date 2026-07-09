@@ -817,6 +817,15 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (err) this.log.warn(`MQTT subscribe error: ${err.message}`);
                 else     this.log.info(`MQTT: subscribed to ${this.mqttPrefix}/set/#`);
             });
+            // Re-publish everything we know. Fixes a startup race: a state set
+            // before the MQTT client finished connecting (e.g. info.connection
+            // when the TV link came up first) was silently dropped — and being
+            // change-driven, it was never published again.
+            const known = Object.entries(this._cache);
+            if (known.length) {
+                this.log.debug(`MQTT: re-publishing ${known.length} cached states`);
+                for (const [id, val] of known) this.mqttPublish(id, val);
+            }
         });
 
         this.mqttClient.on('message', (topic, message) => {

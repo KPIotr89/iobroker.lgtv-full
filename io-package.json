@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.39",
+    "version": "1.2.40",
     "news": {
+      "1.2.40": {
+        "en": "Fix: states set before the MQTT client finished connecting (typically info.connection when the TV link came up first) were silently dropped and never re-published — all cached states are now re-published on every MQTT (re)connect",
+        "pl": "Poprawka: stany ustawione zanim klient MQTT zdążył się połączyć (typowo info.connection gdy połączenie z TV wstało pierwsze) były po cichu gubione i nigdy nie publikowane ponownie — wszystkie znane stany są teraz republikowane przy każdym (re)połączeniu MQTT"
+      },
       "1.2.39": {
         "en": "Fix: commands arriving milliseconds before the reconnect completed were lost forever (one-shot Loxone scenes) — commands received while disconnected are now queued (latest value per key, max age 2 min) and replayed 2s after connecting through the normal dedup+verify path; dedup caches are cleared on disconnect so stale values from the previous session no longer swallow commands; notify and remote buttons are never replayed late",
         "pl": "Poprawka: komendy przychodzące milisekundy przed nawiązaniem połączenia przepadały bezpowrotnie (jednorazowe sceny Loxone) — komendy odebrane przy braku połączenia są teraz kolejkowane (ostatnia wartość per klucz, max wiek 2 min) i odtwarzane 2 s po połączeniu przez normalną ścieżkę dedup+verify; cache deduplikacji czyszczony przy rozłączeniu, więc wartości z poprzedniej sesji nie połykają komend; notify i przyciski pilota nigdy nie są odtwarzane z opóźnieniem"
