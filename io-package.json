@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.38",
+    "version": "1.2.39",
     "news": {
+      "1.2.39": {
+        "en": "Fix: commands arriving milliseconds before the reconnect completed were lost forever (one-shot Loxone scenes) — commands received while disconnected are now queued (latest value per key, max age 2 min) and replayed 2s after connecting through the normal dedup+verify path; dedup caches are cleared on disconnect so stale values from the previous session no longer swallow commands; notify and remote buttons are never replayed late",
+        "pl": "Poprawka: komendy przychodzące milisekundy przed nawiązaniem połączenia przepadały bezpowrotnie (jednorazowe sceny Loxone) — komendy odebrane przy braku połączenia są teraz kolejkowane (ostatnia wartość per klucz, max wiek 2 min) i odtwarzane 2 s po połączeniu przez normalną ścieżkę dedup+verify; cache deduplikacji czyszczony przy rozłączeniu, więc wartości z poprzedniej sesji nie połykają komend; notify i przyciski pilota nigdy nie są odtwarzane z opóźnieniem"
+      },
       "1.2.38": {
         "en": "Fix: after a cold boot (night in deep standby) webOS silently drops or overrides early settings writes — picture/sound writes are now verified against TV push confirmations and invisibly re-sent (up to 4 attempts at 2/4/8/15s) within 2 minutes of connecting; no more power-cycling the TV to make the morning scene stick",
         "pl": "Poprawka: po zimnym starcie (noc w głębokim standby) webOS po cichu gubi lub nadpisuje wczesne zapisy ustawień — zapisy obrazu/dźwięku są teraz weryfikowane z potwierdzeniami push z TV i niewidocznie ponawiane (do 4 prób co 2/4/8/15 s) w ciągu 2 minut od połączenia; koniec z wyłączaniem/włączaniem TV żeby poranna scena zadziałała"

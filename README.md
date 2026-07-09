@@ -385,6 +385,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.39
+- **Fix:** Commands arriving milliseconds before the reconnect completed were lost forever (one-shot Loxone scenes fired shortly after TV-on detection)
+- Commands received while disconnected are queued (latest value per key, max age 2 min) and replayed 2 s after connecting through the normal dedup + verify path
+- Dedup caches are cleared on disconnect — stale values from the previous session no longer swallow commands while the TV is off
+- `notify` and `remote.*` are never replayed late (time-sensitive)
+
 ### 1.2.38
 - **Fix:** After a cold boot (night in deep standby) webOS silently drops or overrides early settings writes — the TV would ignore the morning scene until power-cycled
 - Picture/sound writes are now verified against TV push confirmations and invisibly re-sent (up to 4 attempts at 2/4/8/15 s) within 2 minutes of connecting

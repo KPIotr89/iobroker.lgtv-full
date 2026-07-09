@@ -334,6 +334,8 @@ class LgtvFullAdapter extends utils.Adapter {
         this._confirmed    = {};      // values confirmed by TV push (not optimistic)
         this._connectedAt  = 0;       // ts of last successful connection
         this._verifyTimers = {};      // key → timer for write verification retries
+        this._pendingCmds  = {};      // key → {val, ts} queued while disconnected
+        this._flushTimer   = null;    // delayed replay of queued commands
         this.inputs       = {};
         this.channels     = [];
 
@@ -515,6 +517,13 @@ class LgtvFullAdapter extends utils.Adapter {
             this.requestSoundSettings();
             this.requestInputList();
             this.requestChannelList();
+            // Replay commands that arrived while disconnected (e.g. a Loxone
+            // scene fired 3s after TV-on detection that lost the race with
+            // the reconnect). 2s delay lets initial pushes populate the
+            // confirmed state first; _verifyApplied covers writes the still-
+            // booting TV silently drops.
+            if (this._flushTimer) clearTimeout(this._flushTimer);
+            this._flushTimer = setTimeout(() => this._flushPending(), 2000);
             // Polling fallback every 60s — in case subscriptions fail
             if (this.pollTimer) clearInterval(this.pollTimer);
             this.pollTimer = setInterval(() => {
@@ -527,7 +536,12 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.tv.on('close', () => {
             this._connecting = false;
-            this._confirmed  = {};   // nothing is confirmed after a disconnect
+            // Nothing is confirmed after a disconnect — and the dedup cache must
+            // not survive either, or a command matching yesterday's value gets
+            // silently skipped while the TV is off ("skip — TV already at this value").
+            this._confirmed  = {};
+            this._cache      = {};
+            this._cmdSent    = {};
             if (this.wasConnected) {
                 // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
@@ -595,6 +609,25 @@ class LgtvFullAdapter extends utils.Adapter {
         this._lastForced = now;
         this.log.debug(`Immediate reconnect (${reason})`);
         this.connect();
+    }
+
+    /**
+     * Replay commands queued while disconnected (latest value per key wins).
+     * Commands older than 2 minutes are dropped — replaying a stale scene
+     * hours later would surprise the user. Replayed via setState(ack=false),
+     * so they go through the normal onStateChange path (dedup + verify).
+     */
+    _flushPending() {
+        this._flushTimer = null;
+        if (!this.connected) return;
+        const now  = Date.now();
+        const pend = this._pendingCmds;
+        this._pendingCmds = {};
+        for (const [key, p] of Object.entries(pend)) {
+            if (now - p.ts > 120000) continue;
+            this.log.info(`Replaying queued command: ${key} = ${p.val}`);
+            this.setStateAsync(key, p.val, false).catch(() => {});
+        }
     }
 
     openInputSocket() {
@@ -992,15 +1025,21 @@ class LgtvFullAdapter extends utils.Adapter {
         if (!this.connected) {
             // Command while disconnected — the TV was probably just turned on,
             // so try to connect right away instead of waiting for the backoff slot.
-            // The command itself is not queued; sources like Loxone re-send periodically.
+            // Queue the command (latest value per key) and replay it after
+            // connecting — one-shot sources (e.g. a Loxone scene fired 3s after
+            // TV-on detection) would otherwise lose the race and the command.
+            // notify and remote.* are time-sensitive — never replayed late.
+            const queueable = key !== 'notify' && !key.startsWith('remote.');
+            if (queueable) this._pendingCmds[key] = { val, ts: Date.now() };
+            const action = queueable ? 'queued' : 'ignoring';
             if (this._warnedIgnore) {
-                this.log.debug(`TV not connected, ignoring: ${key}`);
+                this.log.debug(`TV not connected — ${action}: ${key} = ${val}`);
             } else {
-                this.log.warn(`TV not connected, ignoring: ${key} — forcing reconnect`);
+                this.log.warn(`TV not connected — ${action}: ${key} = ${val}, forcing reconnect`);
                 this._warnedIgnore = true;
             }
-            // Command was NOT applied — remove it from the throttle so a re-send
-            // right after reconnecting is not skipped as a duplicate.
+            // Command was NOT applied — remove it from the throttle so the
+            // replay right after reconnecting is not skipped as a duplicate.
             delete this._cmdSent[key];
             this._connectNow('command while disconnected');
             return;
@@ -1161,6 +1200,7 @@ class LgtvFullAdapter extends utils.Adapter {
         try {
             if (this.reconnTimer) clearTimeout(this.reconnTimer);
             if (this.pollTimer)   clearInterval(this.pollTimer);
+            if (this._flushTimer) clearTimeout(this._flushTimer);
             for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
             if (this.mqttClient)  this.mqttClient.end();
