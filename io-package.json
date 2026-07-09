@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.40",
+    "version": "1.2.41",
     "news": {
+      "1.2.41": {
+        "en": "Fix: reconnect loop could die permanently when a connect attempt got a socket that never fired open/close (TV dropping off the network mid-handshake) — the stuck 'connecting' flag blocked all future attempts; added a 15s watchdog per attempt, stuck-attempt override in forced reconnects, and terminate() fallback for sockets stuck in CONNECTING",
+        "pl": "Poprawka: pętla reconnect mogła umrzeć na stałe gdy próba połączenia dostała socket bez zdarzeń open/close (TV znikający z sieci w trakcie handshake) — zawieszona flaga 'connecting' blokowała wszystkie kolejne próby; dodano watchdog 15 s na próbę, override zawieszonej próby przy wymuszonym reconnect oraz terminate() dla socketów w stanie CONNECTING"
+      },
       "1.2.40": {
         "en": "Fix: states set before the MQTT client finished connecting (typically info.connection when the TV link came up first) were silently dropped and never re-published — all cached states are now re-published on every MQTT (re)connect",
         "pl": "Poprawka: stany ustawione zanim klient MQTT zdążył się połączyć (typowo info.connection gdy połączenie z TV wstało pierwsze) były po cichu gubione i nigdy nie publikowane ponownie — wszystkie znane stany są teraz republikowane przy każdym (re)połączeniu MQTT"

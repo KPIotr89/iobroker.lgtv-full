@@ -385,6 +385,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.41
+- **Fix:** Reconnect loop could die permanently when a connect attempt got a socket that never fired `open`/`close` — the stuck `connecting` flag blocked all future attempts
+- 15 s watchdog per connect attempt: force-clean and reschedule if neither event fires
+- Forced reconnects override attempts stuck longer than 15 s
+- `disconnect()` now also calls `terminate()` — `close()` is a no-op on sockets stuck in CONNECTING
+
 ### 1.2.40
 - **Fix:** States set before the MQTT client finished connecting (typically `info.connection` when the TV link came up first) were silently dropped and never re-published
 - All cached states are re-published on every MQTT (re)connect

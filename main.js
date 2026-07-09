@@ -245,7 +245,11 @@ class LgTvSocket {
 
     disconnect() {
         this._stopHeartbeat();
-        if (this.ws) { try { this.ws.close(); } catch (e) {} }
+        if (this.ws) {
+            try { this.ws.close(); } catch (e) {}
+            // close() is a no-op on a socket stuck in CONNECTING — force it
+            try { this.ws.terminate(); } catch (e) {}
+        }
     }
 
     _send(msg) {
@@ -336,6 +340,8 @@ class LgtvFullAdapter extends utils.Adapter {
         this._verifyTimers = {};      // key → timer for write verification retries
         this._pendingCmds  = {};      // key → {val, ts} queued while disconnected
         this._flushTimer   = null;    // delayed replay of queued commands
+        this._connectingSince = 0;    // ts when current connect attempt started
+        this._watchdog     = null;    // kills connect attempts stuck without open/close
         this.inputs       = {};
         this.channels     = [];
 
@@ -475,6 +481,7 @@ class LgtvFullAdapter extends utils.Adapter {
     connect() {
         if (this.reconnTimer) { clearTimeout(this.reconnTimer); this.reconnTimer = null; }
         this._connecting = true;
+        this._connectingSince = Date.now();
 
         // Detach handlers from a previous socket so a late 'close' event from it
         // cannot schedule a duplicate reconnect loop.
@@ -504,6 +511,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.connected      = true;
             this.wasConnected   = true;
             this._connecting    = false;
+            if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; }
             this._connectedAt   = Date.now();
             this._reconnDelay   = 10;   // reset backoff for next offline period
             this._reconnCount   = 0;
@@ -536,6 +544,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
         this.tv.on('close', () => {
             this._connecting = false;
+            if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; }
             // Nothing is confirmed after a disconnect — and the dedup cache must
             // not survive either, or a command matching yesterday's value gets
             // silently skipped while the TV is off ("skip — TV already at this value").
@@ -594,6 +603,24 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.connect();
+
+        // Watchdog: every attempt must resolve (open or close) within 15s.
+        // If a socket dies without firing either event (seen when the TV
+        // drops off the network mid-handshake), _connecting would stay true
+        // forever and block all future reconnects — so force-clean and retry.
+        if (this._watchdog) clearTimeout(this._watchdog);
+        this._watchdog = setTimeout(() => {
+            if (!this._connecting) return;
+            this.log.debug('Connect watchdog: attempt stuck >15s — forcing cleanup and retry');
+            this._connecting = false;
+            if (this.tv) {
+                this.tv._onClose = () => {};
+                this.tv._onError = () => {};
+                try { this.tv.disconnect(); } catch (e) { /* ignore */ }
+            }
+            if (this.reconnTimer) clearTimeout(this.reconnTimer);
+            this.reconnTimer = setTimeout(() => this.connect(), this._reconnDelay * 1000);
+        }, 15000);
     }
 
     /**
@@ -603,7 +630,16 @@ class LgtvFullAdapter extends utils.Adapter {
      * never while another attempt is already in flight.
      */
     _connectNow(reason) {
-        if (this.connected || this._connecting) return;
+        if (this.connected) return;
+        if (this._connecting) {
+            // A healthy attempt resolves within 15s — anything older is a
+            // stuck socket that never fired open/close; override it.
+            if (Date.now() - this._connectingSince < 15000) {
+                this.log.debug(`Reconnect skipped (${reason}) — attempt already in flight`);
+                return;
+            }
+            this.log.warn('Previous connect attempt stuck — overriding');
+        }
         const now = Date.now();
         if (now - this._lastForced < 5000) return;
         this._lastForced = now;
@@ -1210,6 +1246,7 @@ class LgtvFullAdapter extends utils.Adapter {
             if (this.reconnTimer) clearTimeout(this.reconnTimer);
             if (this.pollTimer)   clearInterval(this.pollTimer);
             if (this._flushTimer) clearTimeout(this._flushTimer);
+            if (this._watchdog)   clearTimeout(this._watchdog);
             for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
             if (this.mqttClient)  this.mqttClient.end();
