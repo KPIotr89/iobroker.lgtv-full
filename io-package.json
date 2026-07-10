@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.42",
+    "version": "1.2.43",
     "news": {
+      "1.2.43": {
+        "en": "Fix: with Loxone gating its commands on info.connection, nothing external kicks the adapter anymore — a TV powered on after deep sleep waited up to 5 min for the next backoff slot; backoff cap lowered 300s→30s (silent polling), and a dropped established link opens a 2-minute 5s polling window (TV switching state usually comes back quickly)",
+        "pl": "Poprawka: gdy Loxone warunkuje komendy stanem info.connection, nic z zewnątrz nie budzi adaptera — TV włączony po głębokim śnie czekał do 5 min na slot backoffu; cap backoffu obniżony 300s→30s (ciche próby), a zerwanie ustanowionego połączenia otwiera 2-minutowe okno prób co 5 s (TV zmieniający stan zwykle szybko wraca)"
+      },
       "1.2.42": {
         "en": "Fix: a command-forced reconnect that hit a still-booting TV failed once and fell back to the (up to 5 min) backoff slot, letting the queued scene expire — forced reconnects now open the 60s fast-retry window (5s polling) like WoL; queued command max age raised to 180s; unknown picture/sound mode values (e.g. 'off' from a misconfigured Loxone block) are rejected before reaching the TV or the queue",
         "pl": "Poprawka: wymuszony komendą reconnect trafiający w bootujący TV padał raz i wracał do okna backoffu (do 5 min), przez co kolejka sceny się przeterminowywała — wymuszone próby otwierają teraz 60-sekundowe okno szybkich prób co 5 s jak WoL; max wiek kolejki podniesiony do 180 s; nieznane tryby obrazu/dźwięku (np. 'off' ze źle skonfigurowanego bloku Loxone) odrzucane zanim dotrą do TV lub kolejki"

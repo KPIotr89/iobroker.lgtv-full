@@ -385,6 +385,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.43
+- **Fix:** With Loxone gating its commands on `info.connection`, nothing external kicks the adapter anymore — a TV powered on after deep sleep waited up to 5 min for the next backoff slot
+- Backoff cap lowered from 300 s to 30 s (attempts are silent, so no log spam)
+- A dropped established link opens a 2-minute window of 5 s polling — a TV switching state (standby wake) is caught within seconds
+
 ### 1.2.42
 - **Fix:** A command-forced reconnect that hit a still-booting TV failed once and fell back to the backoff slot (up to 5 min), letting the queued scene expire — forced reconnects now open the 60 s fast-retry window (5 s polling), same as WoL
 - Queued command max age raised from 120 s to 180 s

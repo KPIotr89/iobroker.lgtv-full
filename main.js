@@ -555,12 +555,20 @@ class LgtvFullAdapter extends utils.Adapter {
                 // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
                 this.wasConnected   = false;
-                this._reconnDelay   = 10;
                 this._reconnCount   = 0;
+                // A dropped ESTABLISHED link usually means the TV is switching
+                // state (waking from standby or entering deep sleep) — poll
+                // every 5s for 2 minutes to catch a waking TV quickly, then
+                // settle into the regular backoff.
+                this._reconnDelay   = 5;
+                this._fastRetryUntil = Date.now() + 120000;
                 this._set('power', false);
             } else {
                 // Failed reconnect attempt while TV is off.
-                // Exponential backoff: 10s → 20s → 40s → 80s → 160s → 300s (5 min cap).
+                // Backoff: 10s → 20s → 30s (cap). The cap is deliberately low:
+                // since Loxone gates its commands on info.connection, nothing
+                // external kicks the adapter anymore — a TV powered on after a
+                // night in deep sleep must be picked up autonomously within ~30s.
                 // Log only on the first attempt and whenever the interval changes.
                 this._reconnCount++;
                 const prevDelay     = this._reconnDelay;
@@ -569,7 +577,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     this._reconnDelay = 5;
                     if (prevDelay !== 5) this.log.debug('WoL fast-retry window — polling every 5s');
                 } else {
-                    this._reconnDelay = Math.min(this._reconnDelay < 10 ? 10 : this._reconnDelay * 2, 300);
+                    this._reconnDelay = Math.min(this._reconnDelay < 10 ? 10 : this._reconnDelay * 2, 30);
                     if (this._reconnCount === 1) {
                         this.log.debug(`TV offline — retry in ${prevDelay}s`);
                     } else if (this._reconnDelay !== prevDelay) {
