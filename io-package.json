@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.41",
+    "version": "1.2.42",
     "news": {
+      "1.2.42": {
+        "en": "Fix: a command-forced reconnect that hit a still-booting TV failed once and fell back to the (up to 5 min) backoff slot, letting the queued scene expire — forced reconnects now open the 60s fast-retry window (5s polling) like WoL; queued command max age raised to 180s; unknown picture/sound mode values (e.g. 'off' from a misconfigured Loxone block) are rejected before reaching the TV or the queue",
+        "pl": "Poprawka: wymuszony komendą reconnect trafiający w bootujący TV padał raz i wracał do okna backoffu (do 5 min), przez co kolejka sceny się przeterminowywała — wymuszone próby otwierają teraz 60-sekundowe okno szybkich prób co 5 s jak WoL; max wiek kolejki podniesiony do 180 s; nieznane tryby obrazu/dźwięku (np. 'off' ze źle skonfigurowanego bloku Loxone) odrzucane zanim dotrą do TV lub kolejki"
+      },
       "1.2.41": {
         "en": "Fix: reconnect loop could die permanently when a connect attempt got a socket that never fired open/close (TV dropping off the network mid-handshake) — the stuck 'connecting' flag blocked all future attempts; added a 15s watchdog per attempt, stuck-attempt override in forced reconnects, and terminate() fallback for sockets stuck in CONNECTING",
         "pl": "Poprawka: pętla reconnect mogła umrzeć na stałe gdy próba połączenia dostała socket bez zdarzeń open/close (TV znikający z sieci w trakcie handshake) — zawieszona flaga 'connecting' blokowała wszystkie kolejne próby; dodano watchdog 15 s na próbę, override zawieszonej próby przy wymuszonym reconnect oraz terminate() dla socketów w stanie CONNECTING"

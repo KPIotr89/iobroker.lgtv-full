@@ -643,6 +643,11 @@ class LgtvFullAdapter extends utils.Adapter {
         const now = Date.now();
         if (now - this._lastForced < 5000) return;
         this._lastForced = now;
+        // A command usually means the TV just woke up but may not accept
+        // connections for another 10-30s — if this attempt fails, keep
+        // polling every 5s for the next 60s instead of falling back to the
+        // (up to 300s) backoff slot, which lets the queued scene expire.
+        this._fastRetryUntil = now + 60000;
         this.log.debug(`Immediate reconnect (${reason})`);
         this.connect();
     }
@@ -660,7 +665,7 @@ class LgtvFullAdapter extends utils.Adapter {
         const pend = this._pendingCmds;
         this._pendingCmds = {};
         for (const [key, p] of Object.entries(pend)) {
-            if (now - p.ts > 120000) continue;
+            if (now - p.ts > 180000) continue;
             this.log.info(`Replaying queued command: ${key} = ${p.val}`);
             this.setStateAsync(key, p.val, false).catch(() => {});
         }
@@ -1017,6 +1022,18 @@ class LgtvFullAdapter extends utils.Adapter {
         if (!state || state.ack) return;
         const key = id.split('.').slice(2).join('.');
         const val = state.val;
+
+        // Reject junk mode values early (e.g. a Loxone status block emitting
+        // "off" when the TV disconnects) — they must not reach the TV nor
+        // survive in the offline queue.
+        if (key === 'picture.mode' && !PICTURE_MODES[val]) {
+            this.log.warn(`Unknown picture mode "${val}" — ignored`);
+            return;
+        }
+        if (key === 'audio.soundMode' && !SOUND_MODES[val]) {
+            this.log.warn(`Unknown sound mode "${val}" — ignored`);
+            return;
+        }
 
         // Skip redundant writes to prevent dialogs from MQTT systems (e.g. Loxone)
         // that repeatedly publish the same state every ~60 seconds.

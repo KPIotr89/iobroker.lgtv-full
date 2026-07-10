@@ -385,6 +385,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.42
+- **Fix:** A command-forced reconnect that hit a still-booting TV failed once and fell back to the backoff slot (up to 5 min), letting the queued scene expire — forced reconnects now open the 60 s fast-retry window (5 s polling), same as WoL
+- Queued command max age raised from 120 s to 180 s
+- Unknown `picture.mode` / `audio.soundMode` values are rejected with a warning before reaching the TV or the offline queue
+
 ### 1.2.41
 - **Fix:** Reconnect loop could die permanently when a connect attempt got a socket that never fired `open`/`close` — the stuck `connecting` flag blocked all future attempts
 - 15 s watchdog per connect attempt: force-clean and reschedule if neither event fires
