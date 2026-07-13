@@ -385,6 +385,10 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.44
+- **Improvement:** Faster connection pickup — fast-retry window polls every 3 s (was 5 s), regular backoff cap lowered to 15 s (was 30 s)
+- Recommended companion: publish `lgtv/set/power = true` from your home automation when it detects the TV turning on — the adapter opens the fast-retry window immediately
+
 ### 1.2.43
 - **Fix:** With Loxone gating its commands on `info.connection`, nothing external kicks the adapter anymore — a TV powered on after deep sleep waited up to 5 min for the next backoff slot
 - Backoff cap lowered from 300 s to 30 s (attempts are silent, so no log spam)
