@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.44",
+    "version": "1.2.45",
     "news": {
+      "1.2.45": {
+        "en": "Fix: a weekend webOS system-app update (TV sw 33.31.68) changed alert timing so the single closeAlert at 20ms fired before the alert was registered and was ignored — an empty 'OK' dialog stayed on screen and stacked with every verify-retry; closeAlert now fires repeatedly (40/150/400/900ms) across the registration window and the previous alert is pre-closed before a retry so dialogs can no longer stack",
+        "pl": "Poprawka: weekendowa aktualizacja aplikacji systemowej webOS (TV sw 33.31.68) zmieniła timing alertów — pojedynczy closeAlert po 20ms trafiał zanim alert został zarejestrowany i był ignorowany, pusty dialog 'OK' zostawał na ekranie i mnożył się z każdym verify-retry; closeAlert jest teraz wywoływany wielokrotnie (40/150/400/900ms) w oknie rejestracji, a poprzedni alert zamykany przed ponowieniem — dialogi nie mogą się już stackować"
+      },
       "1.2.44": {
         "en": "Improvement: faster connection pickup — fast-retry window polls every 3s (was 5s), regular backoff cap lowered to 15s (was 30s); combined with a Loxone-side 'power=true' kick on TV-on detection, the adapter connects within seconds of the TV becoming reachable",
         "pl": "Poprawa: szybsze łapanie połączenia — okno fast-retry co 3 s (było 5 s), cap zwykłego backoffu 15 s (było 30 s); w połączeniu z kickiem 'power=true' z Loxone przy detekcji włączenia TV adapter łączy się w kilka sekund od dostępności TV"

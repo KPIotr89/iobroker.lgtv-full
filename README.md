@@ -385,6 +385,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.45
+- **Fix:** A weekend webOS system-app update (TV sw 33.31.68) changed alert timing — the single `closeAlert` at 20 ms fired before the alert was registered and was ignored, leaving an empty "OK" dialog on screen that stacked with every verify-retry
+- `closeAlert` now fires repeatedly (40 / 150 / 400 / 900 ms) across the registration window
+- The previous alert is pre-closed before any retry, so dialogs can no longer stack
+- Note: webOS system apps update independently of firmware, often on weekends — this class of regression recurs; see the technical notes
+
 ### 1.2.44
 - **Improvement:** Faster connection pickup — fast-retry window polls every 3 s (was 5 s), regular backoff cap lowered to 15 s (was 30 s)
 - Recommended companion: publish `lgtv/set/power = true` from your home automation when it detects the TV turning on — the adapter opens the fast-retry window immediately

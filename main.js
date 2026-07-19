@@ -342,6 +342,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this._flushTimer   = null;    // delayed replay of queued commands
         this._connectingSince = 0;    // ts when current connect attempt started
         this._watchdog     = null;    // kills connect attempts stuck without open/close
+        this._lastAlertId  = null;    // last createAlert id — pre-closed to stop dialogs stacking
         this.inputs       = {};
         this.channels     = [];
 
@@ -974,18 +975,36 @@ class LgtvFullAdapter extends utils.Adapter {
                 return;
             }
 
-            // Dismiss dialog at 20ms — before it renders on screen.
-            // onclose callback fires Luna setSystemSettings → setting applied.
-            setTimeout(() => {
-                this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
-                    this.log.debug(`closeAlert: ${e ? (e.message || 'err') : 'ok'}`);
-                });
-            }, 20);
+            // Anti-stack: close any still-open alert from a previous
+            // (verify-)retry. Without this, when closeAlert fails to dismiss
+            // (see below) every retry leaves another empty "OK" dialog stacked.
+            if (this._lastAlertId && this._lastAlertId !== alertId) {
+                this._closeAlert(this._lastAlertId);
+            }
+            this._lastAlertId = alertId;
+
+            // Dismiss the invisible dialog so onclose fires the Luna call.
+            // webOS system-app updates (rolled out on weekends, independent of
+            // firmware — TV sw 33.31.68, 2026-07-19) change how fast the alert
+            // is registered: a single closeAlert at 20ms hit BEFORE the alert
+            // existed and was silently ignored (log: createAlert ok, no
+            // closeAlert response, empty OK dialog stayed on screen).
+            // Fire repeatedly across the registration window instead.
+            for (const d of [40, 150, 400, 900]) {
+                setTimeout(() => this._closeAlert(alertId), d);
+            }
 
             // Older webOS with pointer socket: press ENTER as additional dismiss
             if (this.inputSocket) {
                 setTimeout(() => { this.inputSocket.send('button', { name: 'ENTER' }); }, 10);
             }
+        });
+    }
+
+    /** Close a single alert by id (used for dismissal and anti-stacking). */
+    _closeAlert(alertId) {
+        this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
+            this.log.debug(`closeAlert(${alertId}): ${e ? (e.message || 'err') : 'ok'}`);
         });
     }
 
