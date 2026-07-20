@@ -385,6 +385,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.46
+- **Fix:** Picture-mode dictionary had a non-existent key `hdrCinemaHome` — the real webOS key is `hdrCinemaBright` (verified). The TV reporting `hdrCinemaBright` left `modeNum` stale and writing that mode was rejected by validation
+- Replaced the key at the same position (nr 16) — existing numeric mappings unchanged
+- `modeNum` now falls back to `0` for any unrecognised mode instead of keeping a stale value
+
 ### 1.2.45
 - **Fix:** A weekend webOS system-app update (TV sw 33.31.68) changed alert timing — the single `closeAlert` at 20 ms fired before the alert was registered and was ignored, leaving an empty "OK" dialog on screen that stacked with every verify-retry
 - `closeAlert` now fires repeatedly (40 / 150 / 400 / 900 ms) across the registration window

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.45",
+    "version": "1.2.46",
     "news": {
+      "1.2.46": {
+        "en": "Fix: picture mode dictionary had a non-existent key 'hdrCinemaHome' — the real webOS key is 'hdrCinemaBright' (verified), so when the TV reported hdrCinemaBright picture.mode showed it but modeNum stayed stale and writing that mode was rejected by validation; replaced the key at the same position (no renumbering), and modeNum now falls back to 0 for any unrecognised mode instead of keeping a stale value",
+        "pl": "Poprawka: słownik trybów obrazu miał nieistniejący klucz 'hdrCinemaHome' — prawdziwy klucz webOS to 'hdrCinemaBright' (zweryfikowane), więc gdy TV zgłaszał hdrCinemaBright, picture.mode go pokazywał, ale modeNum wisiał na starej wartości, a zapis tego trybu był odrzucany przez walidację; podmieniono klucz na tej samej pozycji (bez przenumerowania), a modeNum dla nierozpoznanego trybu ustawia się teraz na 0 zamiast trzymać starą wartość"
+      },
       "1.2.45": {
         "en": "Fix: a weekend webOS system-app update (TV sw 33.31.68) changed alert timing so the single closeAlert at 20ms fired before the alert was registered and was ignored — an empty 'OK' dialog stayed on screen and stacked with every verify-retry; closeAlert now fires repeatedly (40/150/400/900ms) across the registration window and the previous alert is pre-closed before a retry so dialogs can no longer stack",
         "pl": "Poprawka: weekendowa aktualizacja aplikacji systemowej webOS (TV sw 33.31.68) zmieniła timing alertów — pojedynczy closeAlert po 20ms trafiał zanim alert został zarejestrowany i był ignorowany, pusty dialog 'OK' zostawał na ekranie i mnożył się z każdym verify-retry; closeAlert jest teraz wywoływany wielokrotnie (40/150/400/900ms) w oknie rejestracji, a poprzedni alert zamykany przed ponowieniem — dialogi nie mogą się już stackować"

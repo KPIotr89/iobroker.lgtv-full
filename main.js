@@ -268,7 +268,7 @@ const PICTURE_MODES = {
     'expert1': 'Expert (Bright Room)', 'expert2': 'Expert (Dark Room)',
     'hdrVivid': 'HDR Vivid', 'hdrStandard': 'HDR Standard', 'hdrCinema': 'HDR Cinema',
     'hdrFilmMaker': 'HDR Filmmaker', 'hdrGame': 'HDR Game', 'hdrSport': 'HDR Sport',
-    'hdrCinemaHome': 'HDR Cinema Home',
+    'hdrCinemaBright': 'HDR Cinema Home',
     'dolbyHdrVivid': 'Dolby Vision Vivid', 'dolbyHdrStandard': 'Dolby Vision Standard',
     'dolbyHdrCinema': 'Dolby Vision Cinema', 'dolbyHdrCinemaBright': 'Dolby Vision Cinema Bright',
     'dolbyHdrFilmMaker': 'Dolby Vision Filmmaker', 'dolbyHdrGame': 'Dolby Vision Game',
@@ -777,7 +777,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 if (s.pictureMode !== undefined) {
                     this._setConfirmed('picture.mode', s.pictureMode);
                     const n = PICTURE_MODE_NUM[s.pictureMode];
-                    if (n !== undefined) this._set('picture.modeNum', n);
+                    this._set('picture.modeNum', n !== undefined ? n : 0);
                 }
                 if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
                 if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
@@ -810,7 +810,7 @@ class LgtvFullAdapter extends utils.Adapter {
             if (s.pictureMode !== undefined) {
                 this._setConfirmed('picture.mode', s.pictureMode);
                 const n = PICTURE_MODE_NUM[s.pictureMode];
-                if (n !== undefined) this._set('picture.modeNum', n);
+                this._set('picture.modeNum', n !== undefined ? n : 0);
             }
             if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
             if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
