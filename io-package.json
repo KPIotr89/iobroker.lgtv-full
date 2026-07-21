@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.47",
+    "version": "1.2.48",
     "news": {
+      "1.2.48": {
+        "en": "Fix: power stayed at 1 with the screen off — with Quick Start+ the SSAP socket stays alive in standby, so socket-close alone never reported 'off'; now subscribes to ssap://com.webos.service.tvpower/power/getPowerState and maps the real state (Active/Screen Saver/Screen Off = on; Active Standby/Suspend/Power Off = off), updating power instantly and much faster (same method as homebridge-lgwebos-tv); falls back to socket-based detection if the endpoint errors on older webOS",
+        "pl": "Poprawka: power wisiał na 1 przy zgaszonym ekranie — przy Quick Start+ socket SSAP żyje w standby, więc samo zamknięcie socketa nigdy nie zgłaszało 'off'; teraz subskrybuje ssap://com.webos.service.tvpower/power/getPowerState i mapuje realny stan (Active/Screen Saver/Screen Off = on; Active Standby/Suspend/Power Off = off), aktualizując power natychmiast i znacznie szybciej (ta sama metoda co homebridge-lgwebos-tv); fallback na detekcję po sockecie gdy endpoint zwróci błąd na starszym webOS"
+      },
       "1.2.47": {
         "en": "Fix: input switching never worked — ssap://tv/switchInput expects the device id (e.g. 'HDMI_3') but the adapter passed the appId ('com.webos.app.hdmi3'), so the TV silently ignored it AND the optimistic cache write then made every later input command be skipped as a duplicate; now launches the input as an app via system.launcher/launch (reliable for HDMI on webOS) with a switchInput fallback, no longer caches optimistically, and input.current is synced from the TV's foreground app (also reflects manual input changes)",
         "pl": "Poprawka: przełączanie wejść nigdy nie działało — ssap://tv/switchInput oczekuje id urządzenia (np. 'HDMI_3'), a adapter przekazywał appId ('com.webos.app.hdmi3'), więc TV po cichu ignorował, a optymistyczny zapis cache powodował pomijanie kolejnych komend jako duplikatów; teraz uruchamia wejście jako aplikację przez system.launcher/launch (pewne dla HDMI) z fallbackiem na switchInput, nie zapisuje cache optymistycznie, a input.current jest synchronizowany z aplikacją pierwszoplanową TV (odzwierciedla też ręczną zmianę wejścia)"

@@ -756,6 +756,32 @@ class LgtvFullAdapter extends utils.Adapter {
             this._set('screenSaver', res.actived === true || res.screenSaverRunning === true);
         });
 
+        // Real power state (webOS 3.0+). With Quick Start+ the SSAP socket stays
+        // alive while the TV is in standby, so a socket close alone can't tell
+        // "on" from "standby" — power stayed at 1 with the screen off.
+        // This subscription reports the actual state and updates power instantly
+        // (much faster than waiting for the socket to drop). If the endpoint
+        // errors (older webOS), the socket connect/close logic remains the source.
+        this.tv.subscribe('ssap://com.webos.service.tvpower/power/getPowerState', (err, res) => {
+            if (err || !res || !res.state) return;
+            this.log.debug(`Power state: ${res.state}`);
+            let on;
+            switch (res.state) {
+                case 'Active':
+                case 'Screen Saver':
+                case 'Screen Off':      // panel dark but TV running — still "on"
+                    on = true;  break;
+                case 'Active Standby':
+                case 'Suspend':
+                case 'Power Off':
+                    on = false; break;
+                default:
+                    return;             // unknown state — leave power unchanged
+            }
+            this._set('power', on);
+            this._set('screenSaver', res.state === 'Screen Saver');
+        });
+
         // Auto-dismiss any alert/notification that appears on screen.
         // webOS 24 shows a native "unknown message OK" popup when settings are
         // changed via SSAP. Subscribing to getStatus lets us catch incoming alertIds

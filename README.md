@@ -406,6 +406,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.48
+- **Fix:** `power` stayed at `1` with the screen off — with Quick Start+ the SSAP socket stays alive in standby, so a socket close never happened and power was never reported as off
+- Now subscribes to `ssap://com.webos.service.tvpower/power/getPowerState` and maps the real state: `Active` / `Screen Saver` / `Screen Off` → on, `Active Standby` / `Suspend` / `Power Off` → off
+- Updates `power` instantly (pushed by the TV) — much faster than waiting for the socket to drop; same approach as `homebridge-lgwebos-tv`
+- Falls back to socket-based detection if the endpoint errors on older webOS
+
 ### 1.2.47
 - **Fix:** Input switching never worked — `ssap://tv/switchInput` expects the device id (e.g. `HDMI_3`) but the adapter passed the appId (`com.webos.app.hdmi3`), so the TV ignored it
 - Additionally, the optimistic cache write then made every later input command be skipped as a duplicate
