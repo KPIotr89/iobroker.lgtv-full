@@ -173,7 +173,7 @@ Accept it with the remote control. The pairing key is saved automatically and pa
 | 13 | `hdrFilmMaker` | HDR Filmmaker |
 | 14 | `hdrGame` | HDR Game |
 | 15 | `hdrSport` | HDR Sport |
-| 16 | `hdrCinemaHome` | HDR Cinema Home |
+| 16 | `hdrCinemaBright` | HDR Cinema Home |
 | 17 | `dolbyHdrVivid` | Dolby Vision Vivid |
 | 18 | `dolbyHdrStandard` | Dolby Vision Standard |
 | 19 | `dolbyHdrCinema` | Dolby Vision Cinema |
@@ -192,6 +192,18 @@ Accept it with the remote control. The pairing key is saved automatically and pa
 | `input.current` | string | R/W | Active input ID — write to switch source |
 | `input.list` | JSON | R | All available inputs as a JSON object |
 
+Input IDs are the webOS app IDs (the exact set depends on your TV / connected devices). Typical HDMI IDs:
+
+| Input | ID |
+|-------|----|
+| HDMI 1 | `com.webos.app.hdmi1` |
+| HDMI 2 | `com.webos.app.hdmi2` |
+| HDMI 3 | `com.webos.app.hdmi3` |
+| HDMI 4 | `com.webos.app.hdmi4` |
+| Live TV | `com.webos.app.livetv` |
+
+Read `input.list` for the exact IDs and labels reported by your TV.
+
 ### 📡 TV Channels
 
 | State | Type | R/W | Description |
@@ -199,6 +211,14 @@ Accept it with the remote control. The pairing key is saved automatically and pa
 | `channel.number` | string | R/W | Current channel number — write to switch |
 | `channel.name` | string | R | Current channel name |
 | `channel.list` | JSON | R | Full channel map `{ "number": "name" }` |
+
+### 🔔 Notifications
+
+| State | Type | R/W | Description |
+|-------|------|-----|-------------|
+| `notify` | string | W | Write text to show a native toast on the TV screen (top corner, auto-dismisses ~5 s) |
+
+Uses `createToast` — no popup issue on webOS 24. Publish **non-retained** (impulse), so an old message doesn't reappear when the TV turns on. Bypasses command deduplication: the same text twice shows two toasts.
 
 ### 📱 Apps
 
@@ -293,13 +313,14 @@ lgtv/state/audio/soundModeNum    → 3
 lgtv/state/picture/mode          → filmMaker
 lgtv/state/picture/modeNum       → 7
 lgtv/state/picture/backlight     → 30
-lgtv/state/input/current         → HDMI_1
+lgtv/state/input/current         → com.webos.app.hdmi3
 
 lgtv/set/audio/volume            ← 50
 lgtv/set/picture/mode            ← cinema
 lgtv/set/picture/modeNum         ← 4
 lgtv/set/picture/backlight       ← 60
 lgtv/set/audio/soundMode         ← aiSoundPro
+lgtv/set/input/current           ← com.webos.app.hdmi3
 lgtv/set/power                   ← true / false
 lgtv/set/notify                  ← Someone at the gate 🔔
 ```
