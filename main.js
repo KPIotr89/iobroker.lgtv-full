@@ -725,6 +725,10 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv.subscribe('ssap://com.webos.applicationManager/getForegroundAppInfo', (err, res) => {
             if (err || !res || !res.appId) return;
             this._set('app.current', res.appId);
+            // HDMI/external inputs are apps — when the foreground app is a known
+            // input, reflect it in input.current so the dedup cache tracks the
+            // TV's ACTUAL source (also catches manual input changes via remote).
+            if (this.inputs[res.appId]) this._set('input.current', res.appId);
         });
 
         this.tv.subscribe('ssap://tv/getCurrentChannel', (err, res) => {
@@ -1222,10 +1226,29 @@ class LgtvFullAdapter extends utils.Adapter {
                 this._verifyApplied(key, rounded, () => this._setPictureSetting({ [k]: String(rounded) }, () => {}));
                 break;
             }
-            case 'input.current':
-                this.tv.request('ssap://tv/switchInput', { inputId: val });
-                this._set(key, val);
+            case 'input.current': {
+                // HDMI/external inputs are apps on webOS — launching the appId
+                // (e.g. com.webos.app.hdmi3) switches the source reliably.
+                // ssap://tv/switchInput needs the DEVICE id (e.g. "HDMI_3"),
+                // not the appId, so passing the appId to it silently failed.
+                const dev = this.inputs[val];
+                this.tv.request('ssap://system.launcher/launch', { id: val }, (err) => {
+                    if (err && dev && dev.id) {
+                        // Fallback: switchInput with the resolved device id
+                        this.tv.request('ssap://tv/switchInput', { inputId: dev.id }, (e) => {
+                            if (e) this.log.warn(`switch input ${val}: ${e.message || e}`);
+                        });
+                    } else if (err) {
+                        this.log.warn(`switch input ${val}: ${err.message || err}`);
+                    }
+                });
+                // Don't cache optimistically — the getForegroundAppInfo push
+                // confirms the actual input. A failed switch must not poison the
+                // dedup cache (old bug: switchInput failed but cache said "done",
+                // so every later command was skipped as a duplicate).
+                this.setStateAsync(id, val, true);
                 break;
+            }
             case 'channel.number': {
                 const ch = this.channels.find(c => c.channelNumber === String(val));
                 if (ch) {

@@ -406,6 +406,13 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.47
+- **Fix:** Input switching never worked — `ssap://tv/switchInput` expects the device id (e.g. `HDMI_3`) but the adapter passed the appId (`com.webos.app.hdmi3`), so the TV ignored it
+- Additionally, the optimistic cache write then made every later input command be skipped as a duplicate
+- Now switches by launching the input as an app (`system.launcher/launch`), with a `switchInput` fallback using the resolved device id
+- `input.current` is synced from the TV's foreground app, so the dedup cache tracks the real source (and reflects manual input changes via remote)
+- Reminder: the correct MQTT topic is `lgtv/set/input/current` (not `lgtv/set/input`)
+
 ### 1.2.46
 - **Fix:** Picture-mode dictionary had a non-existent key `hdrCinemaHome` — the real webOS key is `hdrCinemaBright` (verified). The TV reporting `hdrCinemaBright` left `modeNum` stale and writing that mode was rejected by validation
 - Replaced the key at the same position (nr 16) — existing numeric mappings unchanged

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.46",
+    "version": "1.2.47",
     "news": {
+      "1.2.47": {
+        "en": "Fix: input switching never worked — ssap://tv/switchInput expects the device id (e.g. 'HDMI_3') but the adapter passed the appId ('com.webos.app.hdmi3'), so the TV silently ignored it AND the optimistic cache write then made every later input command be skipped as a duplicate; now launches the input as an app via system.launcher/launch (reliable for HDMI on webOS) with a switchInput fallback, no longer caches optimistically, and input.current is synced from the TV's foreground app (also reflects manual input changes)",
+        "pl": "Poprawka: przełączanie wejść nigdy nie działało — ssap://tv/switchInput oczekuje id urządzenia (np. 'HDMI_3'), a adapter przekazywał appId ('com.webos.app.hdmi3'), więc TV po cichu ignorował, a optymistyczny zapis cache powodował pomijanie kolejnych komend jako duplikatów; teraz uruchamia wejście jako aplikację przez system.launcher/launch (pewne dla HDMI) z fallbackiem na switchInput, nie zapisuje cache optymistycznie, a input.current jest synchronizowany z aplikacją pierwszoplanową TV (odzwierciedla też ręczną zmianę wejścia)"
+      },
       "1.2.46": {
         "en": "Fix: picture mode dictionary had a non-existent key 'hdrCinemaHome' — the real webOS key is 'hdrCinemaBright' (verified), so when the TV reported hdrCinemaBright picture.mode showed it but modeNum stayed stale and writing that mode was rejected by validation; replaced the key at the same position (no renumbering), and modeNum now falls back to 0 for any unrecognised mode instead of keeping a stale value",
         "pl": "Poprawka: słownik trybów obrazu miał nieistniejący klucz 'hdrCinemaHome' — prawdziwy klucz webOS to 'hdrCinemaBright' (zweryfikowane), więc gdy TV zgłaszał hdrCinemaBright, picture.mode go pokazywał, ale modeNum wisiał na starej wartości, a zapis tego trybu był odrzucany przez walidację; podmieniono klucz na tej samej pozycji (bez przenumerowania), a modeNum dla nierozpoznanego trybu ustawia się teraz na 0 zamiast trzymać starą wartość"
