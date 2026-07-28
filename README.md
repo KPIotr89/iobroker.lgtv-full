@@ -406,6 +406,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.49
+- **Fix:** Backlight/brightness/contrast/etc. are stored **per picture mode** on LG TVs — after a mode change the TV loads that mode's own values
+- The dedup cache still held the previous mode's value, so a corrective command sent right after the mode switch (e.g. `backlight=100`) was wrongly skipped as a duplicate and the TV kept the mode's stored value (e.g. `20`)
+- Per-mode picture caches are now invalidated on every mode change, so follow-up settings always apply
+- Tip: send the mode **before** the backlight, and ideally set each mode's preferred backlight once in the TV menu (it persists per mode)
+
 ### 1.2.48
 - **Fix:** `power` stayed at `1` with the screen off — with Quick Start+ the SSAP socket stays alive in standby, so a socket close never happened and power was never reported as off
 - Now subscribes to `ssap://com.webos.service.tvpower/power/getPowerState` and maps the real state: `Active` / `Screen Saver` / `Screen Off` → on, `Active Standby` / `Suspend` / `Power Off` → off

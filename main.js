@@ -1031,6 +1031,21 @@ class LgtvFullAdapter extends utils.Adapter {
         });
     }
 
+    /**
+     * Invalidate the dedup cache for per-mode picture sub-settings.
+     * Backlight/brightness/contrast/color/sharpness are stored PER picture mode
+     * on LG TVs — switching mode makes the TV load that mode's own values.
+     * If we keep the old cached value, a corrective command sent right after a
+     * mode change (e.g. backlight=100) gets wrongly skipped as a duplicate, and
+     * the TV keeps the new mode's stored value instead (seen: ended on 20 not 100).
+     */
+    _invalidatePictureSubCache() {
+        for (const k of ['picture.backlight', 'picture.brightness', 'picture.contrast', 'picture.color', 'picture.sharpness']) {
+            delete this._cache[k];
+            delete this._cmdSent[k];
+        }
+    }
+
     /** Close a single alert by id (used for dismissal and anti-stacking). */
     _closeAlert(alertId) {
         this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
@@ -1223,6 +1238,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this._set(key, val);
                 const pn = PICTURE_MODE_NUM[val];
                 if (pn !== undefined) this._set('picture.modeNum', pn);
+                this._invalidatePictureSubCache();  // TV reloads per-mode backlight etc.
                 this._verifyApplied('picture.mode', val, () => this._setPictureSetting({ pictureMode: val }, () => {}));
                 break;
             }
@@ -1234,6 +1250,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     });
                     this._set(key, val);
                     this._set('picture.mode', picKey);
+                    this._invalidatePictureSubCache();  // TV reloads per-mode backlight etc.
                     this._verifyApplied('picture.mode', picKey, () => this._setPictureSetting({ pictureMode: picKey }, () => {}));
                 }
                 break;

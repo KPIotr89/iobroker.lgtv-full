@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.48",
+    "version": "1.2.49",
     "news": {
+      "1.2.49": {
+        "en": "Fix: backlight/brightness/etc. are stored per picture mode on LG TVs — after a mode change the TV loads that mode's own values, but the dedup cache still held the previous mode's value, so a corrective command sent right after the mode switch (e.g. backlight=100) was wrongly skipped as a duplicate and the TV kept the mode's stored value (e.g. 20); the per-mode picture caches are now invalidated on every mode change so follow-up settings always apply",
+        "pl": "Poprawka: backlight/jasność/itd. są zapisywane per tryb obrazu na TV LG — po zmianie trybu TV wczytuje jego własne wartości, ale cache deduplikacji trzymał wartość z poprzedniego trybu, więc korygująca komenda wysłana zaraz po zmianie trybu (np. backlight=100) była błędnie pomijana jako duplikat i TV zostawał na zapisanej wartości trybu (np. 20); cache podustawień obrazu jest teraz unieważniany przy każdej zmianie trybu, więc kolejne ustawienia zawsze się aplikują"
+      },
       "1.2.48": {
         "en": "Fix: power stayed at 1 with the screen off — with Quick Start+ the SSAP socket stays alive in standby, so socket-close alone never reported 'off'; now subscribes to ssap://com.webos.service.tvpower/power/getPowerState and maps the real state (Active/Screen Saver/Screen Off = on; Active Standby/Suspend/Power Off = off), updating power instantly and much faster (same method as homebridge-lgwebos-tv); falls back to socket-based detection if the endpoint errors on older webOS",
         "pl": "Poprawka: power wisiał na 1 przy zgaszonym ekranie — przy Quick Start+ socket SSAP żyje w standby, więc samo zamknięcie socketa nigdy nie zgłaszało 'off'; teraz subskrybuje ssap://com.webos.service.tvpower/power/getPowerState i mapuje realny stan (Active/Screen Saver/Screen Off = on; Active Standby/Suspend/Power Off = off), aktualizując power natychmiast i znacznie szybciej (ta sama metoda co homebridge-lgwebos-tv); fallback na detekcję po sockecie gdy endpoint zwróci błąd na starszym webOS"
