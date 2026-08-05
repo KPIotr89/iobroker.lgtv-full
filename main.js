@@ -343,6 +343,8 @@ class LgtvFullAdapter extends utils.Adapter {
         this._connectingSince = 0;    // ts when current connect attempt started
         this._watchdog     = null;    // kills connect attempts stuck without open/close
         this._lastAlertId  = null;    // last createAlert id — pre-closed to stop dialogs stacking
+        this._modeChangeTimes = [];   // ts of recent applied picture.mode changes (flap guard)
+        this._modeCooldownUntil = 0;  // ts until which mode changes are blocked (anti-oscillation)
         this.inputs       = {};
         this.channels     = [];
 
@@ -1040,6 +1042,29 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     /**
+     * Anti-oscillation guard for picture mode. A Loxone remap that reads the
+     * TV's reported mode and writes a mode back is a feedback loop; during an
+     * HDMI source switch (e.g. TV<->PS5) the TV reports several transient modes
+     * and the remap republishes each, grinding the panel. If the mode changes
+     * more than 5 times in 12s, block further changes for 20s — the TV settles
+     * on the signal's correct auto-mode (e.g. hdrGame for a PS5 HDR game) and
+     * the panel stops flapping. Returns true if the change should be blocked.
+     */
+    _modeFlapBlocked() {
+        const now = Date.now();
+        if (now < this._modeCooldownUntil) return true;
+        this._modeChangeTimes = this._modeChangeTimes.filter(t => now - t < 12000);
+        this._modeChangeTimes.push(now);
+        if (this._modeChangeTimes.length > 5) {
+            this._modeCooldownUntil = now + 20000;
+            this._modeChangeTimes = [];
+            this.log.warn('Picture mode changing too fast (>5×/12s) — locking mode for 20s to protect the panel (check for a Loxone feedback loop around picture.mode)');
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Invalidate the dedup cache for per-mode picture sub-settings.
      * Backlight/brightness/contrast/color/sharpness are stored PER picture mode
      * on LG TVs — switching mode makes the TV load that mode's own values.
@@ -1240,6 +1265,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 break;
             }
             case 'picture.mode': {
+                if (this._modeFlapBlocked()) { this.setStateAsync(id, val, true); break; }
                 this._setPictureSetting({ pictureMode: val }, (err) => {
                     if (err) this.log.warn(`picture mode write error: ${err.message}`);
                 });
@@ -1253,6 +1279,7 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.modeNum': {
                 const picKey = PICTURE_MODE_KEYS[val - 1];
                 if (picKey) {
+                    if (this._modeFlapBlocked()) { this.setStateAsync(id, val, true); break; }
                     this._setPictureSetting({ pictureMode: picKey }, (err) => {
                         if (err) this.log.warn(`picture modeNum write error: ${err.message}`);
                     });

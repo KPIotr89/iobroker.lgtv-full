@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.50",
+    "version": "1.2.51",
     "news": {
+      "1.2.51": {
+        "en": "Add: anti-oscillation guard for picture mode — a Loxone remap that reads the TV's reported mode and writes one back is a feedback loop, and during an HDMI source switch (TV<->PS5) the TV reports several transient modes that get republished, grinding the panel; if the mode changes >5x in 12s the adapter locks the mode for 20s so the TV settles on the signal's correct auto-mode (protects the OLED panel regardless of the Loxone logic)",
+        "pl": "Dodano: bezpiecznik anty-oscylacja trybu obrazu — remap w Loxone czytający tryb zgłaszany przez TV i zapisujący tryb z powrotem to pętla sprzężenia, a podczas przełączania źródła HDMI (TV<->PS5) TV raportuje kilka przejściowych trybów, które są republikowane i mielą panelem; jeśli tryb zmienia się >5× w 12 s adapter blokuje tryb na 20 s, by TV ustabilizował się na właściwym auto-trybie sygnału (chroni panel OLED niezależnie od logiki Loxone)"
+      },
       "1.2.50": {
         "en": "Fix: verify-retry no longer fights the TV over an incompatible picture mode — LG uses separate SDR/HDR mode sets, so forcing an SDR mode (e.g. filmMaker) on an HDR/game signal is rejected and the TV reverts (e.g. to hdrGame); the adapter used to re-send it up to 4 times, amplifying a filmMaker<->hdrGame oscillation; now if the TV confirms a different valid mode the retry stops. NOTE: the root cause of such oscillation is usually a Loxone loop forcing an SDR mode on an HDR source — fix that in Loxone",
         "pl": "Poprawka: verify-retry nie walczy już z TV o niekompatybilny tryb obrazu — LG ma osobne zestawy trybów SDR/HDR, więc wymuszenie trybu SDR (np. filmMaker) na sygnale HDR/gra jest odrzucane i TV wraca (np. do hdrGame); adapter ponawiał to do 4× wzmacniając oscylację filmMaker<->hdrGame; teraz gdy TV potwierdzi inny prawidłowy tryb, ponawianie się zatrzymuje. UWAGA: źródłem takiej oscylacji jest zwykle pętla w Loxone forsująca tryb SDR na źródle HDR — to trzeba naprawić w Loxone"

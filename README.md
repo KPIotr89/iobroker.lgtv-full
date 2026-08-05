@@ -406,6 +406,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.51
+- **Add:** Anti-oscillation guard for picture mode — protects the OLED panel from rapid mode grinding
+- A home-automation remap that reads the TV's reported mode and writes one back is a feedback loop; during an HDMI source switch (e.g. TV↔PS5) the TV reports several transient modes that get republished
+- If the mode changes more than 5× in 12 s, the adapter locks the mode for 20 s so the TV settles on the signal's correct auto-mode
+- Root fix is still on the automation side (debounce the mode input, or don't re-publish based on the TV's reported mode)
+
 ### 1.2.50
 - **Fix:** Verify-retry no longer fights the TV over an incompatible picture mode
 - LG uses separate SDR/HDR mode sets — forcing an SDR mode (e.g. `filmMaker`) on an HDR/game signal is rejected and the TV reverts (e.g. to `hdrGame`). The adapter used to re-send it up to 4×, amplifying a `filmMaker`↔`hdrGame` oscillation
