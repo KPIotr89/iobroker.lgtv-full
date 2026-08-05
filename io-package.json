@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.49",
+    "version": "1.2.50",
     "news": {
+      "1.2.50": {
+        "en": "Fix: verify-retry no longer fights the TV over an incompatible picture mode — LG uses separate SDR/HDR mode sets, so forcing an SDR mode (e.g. filmMaker) on an HDR/game signal is rejected and the TV reverts (e.g. to hdrGame); the adapter used to re-send it up to 4 times, amplifying a filmMaker<->hdrGame oscillation; now if the TV confirms a different valid mode the retry stops. NOTE: the root cause of such oscillation is usually a Loxone loop forcing an SDR mode on an HDR source — fix that in Loxone",
+        "pl": "Poprawka: verify-retry nie walczy już z TV o niekompatybilny tryb obrazu — LG ma osobne zestawy trybów SDR/HDR, więc wymuszenie trybu SDR (np. filmMaker) na sygnale HDR/gra jest odrzucane i TV wraca (np. do hdrGame); adapter ponawiał to do 4× wzmacniając oscylację filmMaker<->hdrGame; teraz gdy TV potwierdzi inny prawidłowy tryb, ponawianie się zatrzymuje. UWAGA: źródłem takiej oscylacji jest zwykle pętla w Loxone forsująca tryb SDR na źródle HDR — to trzeba naprawić w Loxone"
+      },
       "1.2.49": {
         "en": "Fix: backlight/brightness/etc. are stored per picture mode on LG TVs — after a mode change the TV loads that mode's own values, but the dedup cache still held the previous mode's value, so a corrective command sent right after the mode switch (e.g. backlight=100) was wrongly skipped as a duplicate and the TV kept the mode's stored value (e.g. 20); the per-mode picture caches are now invalidated on every mode change so follow-up settings always apply",
         "pl": "Poprawka: backlight/jasność/itd. są zapisywane per tryb obrazu na TV LG — po zmianie trybu TV wczytuje jego własne wartości, ale cache deduplikacji trzymał wartość z poprzedniego trybu, więc korygująca komenda wysłana zaraz po zmianie trybu (np. backlight=100) była błędnie pomijana jako duplikat i TV zostawał na zapisanej wartości trybu (np. 20); cache podustawień obrazu jest teraz unieważniany przy każdej zmianie trybu, więc kolejne ustawienia zawsze się aplikują"

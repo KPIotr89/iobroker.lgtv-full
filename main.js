@@ -404,6 +404,14 @@ class LgtvFullAdapter extends utils.Adapter {
             delete this._verifyTimers[key];
             if (!this.connected) return;
             if (this._confirmed[key] == val) return;   // TV confirmed via push
+            // If the TV confirmed a DIFFERENT valid picture mode, it deliberately
+            // rejected ours — LG uses separate SDR/HDR mode sets, so an SDR mode
+            // (e.g. filmMaker) cannot be selected on an HDR/game signal and the TV
+            // reverts (e.g. to hdrGame). Retrying just fights the TV, so stop.
+            if (key === 'picture.mode' && this._confirmed[key] !== undefined && PICTURE_MODES[this._confirmed[key]]) {
+                this.log.warn(`Picture mode "${val}" rejected by TV (now "${this._confirmed[key]}" — likely SDR/HDR signal mismatch); not retrying`);
+                return;
+            }
             if (attempt >= DELAYS.length) {
                 this.log.warn(`${key} = ${val} not applied after ${DELAYS.length} attempts (TV reports "${this._confirmed[key]}")`);
                 return;

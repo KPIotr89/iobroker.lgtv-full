@@ -406,6 +406,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.50
+- **Fix:** Verify-retry no longer fights the TV over an incompatible picture mode
+- LG uses separate SDR/HDR mode sets — forcing an SDR mode (e.g. `filmMaker`) on an HDR/game signal is rejected and the TV reverts (e.g. to `hdrGame`). The adapter used to re-send it up to 4×, amplifying a `filmMaker`↔`hdrGame` oscillation
+- Now, if the TV confirms a different valid mode, the retry stops (logs a warning)
+- **Root cause of such oscillation is usually a Loxone loop** forcing an SDR mode on an HDR source — the real fix is in Loxone (don't force SDR modes on HDR/game signals; don't re-send mode based on the TV's reported mode)
+
 ### 1.2.49
 - **Fix:** Backlight/brightness/contrast/etc. are stored **per picture mode** on LG TVs — after a mode change the TV loads that mode's own values
 - The dedup cache still held the previous mode's value, so a corrective command sent right after the mode switch (e.g. `backlight=100`) was wrongly skipped as a duplicate and the TV kept the mode's stored value (e.g. `20`)
