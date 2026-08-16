@@ -1024,13 +1024,15 @@ class LgtvFullAdapter extends utils.Adapter {
             this._lastAlertId = alertId;
 
             // Dismiss the invisible dialog so onclose fires the Luna call.
-            // webOS system-app updates (rolled out on weekends, independent of
-            // firmware — TV sw 33.31.68, 2026-07-19) change how fast the alert
-            // is registered: a single closeAlert at 20ms hit BEFORE the alert
-            // existed and was silently ignored (log: createAlert ok, no
-            // closeAlert response, empty OK dialog stayed on screen).
-            // Fire repeatedly across the registration window instead.
-            for (const d of [40, 150, 400, 900]) {
+            // We're inside the createAlert response callback, so the alert
+            // already exists — close it IMMEDIATELY for the shortest possible
+            // on-screen flash. The timed retries stay as a safety net for the
+            // case where the system app registers the alert a little late
+            // (weekend webOS system-app updates change this timing — a single
+            // early close then gets silently ignored and the empty OK dialog
+            // lingers). Dense early retries minimise the visible flash.
+            this._closeAlert(alertId);   // 0 ms — fastest possible
+            for (const d of [20, 50, 120, 300, 700]) {
                 setTimeout(() => this._closeAlert(alertId), d);
             }
 

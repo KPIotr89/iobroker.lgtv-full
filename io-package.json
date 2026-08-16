@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.51",
+    "version": "1.2.52",
     "news": {
+      "1.2.52": {
+        "en": "Improvement: dismiss the settings alert with the shortest possible flash — closeAlert now fires immediately inside the createAlert response callback (the alert already exists there) instead of first at 40ms, with denser early retries (20/50/120/300/700ms) as a safety net; removes the brief few-ms dialog flash some users saw on mode/setting changes",
+        "pl": "Poprawa: zamykanie alertu ustawień z najkrótszym możliwym mignięciem — closeAlert leci teraz natychmiast w callbacku odpowiedzi createAlert (alert już tam istnieje) zamiast dopiero po 40ms, z gęstszymi wczesnymi próbami (20/50/120/300/700ms) jako zabezpieczenie; usuwa krótkie kilkumilisekundowe mignięcie dialogu widoczne czasem przy zmianie trybu/ustawień"
+      },
       "1.2.51": {
         "en": "Add: anti-oscillation guard for picture mode — a Loxone remap that reads the TV's reported mode and writes one back is a feedback loop, and during an HDMI source switch (TV<->PS5) the TV reports several transient modes that get republished, grinding the panel; if the mode changes >5x in 12s the adapter locks the mode for 20s so the TV settles on the signal's correct auto-mode (protects the OLED panel regardless of the Loxone logic)",
         "pl": "Dodano: bezpiecznik anty-oscylacja trybu obrazu — remap w Loxone czytający tryb zgłaszany przez TV i zapisujący tryb z powrotem to pętla sprzężenia, a podczas przełączania źródła HDMI (TV<->PS5) TV raportuje kilka przejściowych trybów, które są republikowane i mielą panelem; jeśli tryb zmienia się >5× w 12 s adapter blokuje tryb na 20 s, by TV ustabilizował się na właściwym auto-trybie sygnału (chroni panel OLED niezależnie od logiki Loxone)"

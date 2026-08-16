@@ -406,6 +406,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.52
+- **Improvement:** Dismiss the settings alert with the shortest possible flash — `closeAlert` now fires immediately inside the `createAlert` response callback (the alert already exists there) instead of first at 40 ms
+- Denser early retries (20 / 50 / 120 / 300 / 700 ms) remain as a safety net for late alert registration
+- Removes the brief few-ms dialog flash some setups saw on mode/setting changes
+
 ### 1.2.51
 - **Add:** Anti-oscillation guard for picture mode — protects the OLED panel from rapid mode grinding
 - A home-automation remap that reads the TV's reported mode and writes one back is a feedback loop; during an HDMI source switch (e.g. TV↔PS5) the TV reports several transient modes that get republished
