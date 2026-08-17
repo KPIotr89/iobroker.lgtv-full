@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.52",
+    "version": "1.2.53",
     "news": {
+      "1.2.53": {
+        "en": "Add: MQTT liveness robustness for info.connection — it only changed on TV connect/disconnect, so a subscriber that lost the topic between changes (e.g. gateway cache cleared) never got it back until a state change or adapter restart; added a Last Will (broker publishes connection=false if the adapter drops unexpectedly, so Loxone sees a dead bridge instead of a stale 'true') and a 30s heartbeat republish (self-heals a lost topic within 30s); clean shutdown now publishes false explicitly",
+        "pl": "Dodano: odporność sygnału życia info.connection — zmieniał się tylko przy połączeniu/rozłączeniu TV, więc subskrybent który zgubił temat między zmianami (np. wyczyszczony cache gatewaya) nie dostawał go aż do zmiany stanu lub restartu adaptera; dodano Last Will (broker publikuje connection=false gdy adapter padnie nieoczekiwanie — Loxone widzi martwy most zamiast starego 'true') i heartbeat co 30 s (samonaprawianie zgubionego tematu w 30 s); czyste zamknięcie publikuje teraz false jawnie"
+      },
       "1.2.52": {
         "en": "Improvement: dismiss the settings alert with the shortest possible flash — closeAlert now fires immediately inside the createAlert response callback (the alert already exists there) instead of first at 40ms, with denser early retries (20/50/120/300/700ms) as a safety net; removes the brief few-ms dialog flash some users saw on mode/setting changes",
         "pl": "Poprawa: zamykanie alertu ustawień z najkrótszym możliwym mignięciem — closeAlert leci teraz natychmiast w callbacku odpowiedzi createAlert (alert już tam istnieje) zamiast dopiero po 40ms, z gęstszymi wczesnymi próbami (20/50/120/300/700ms) jako zabezpieczenie; usuwa krótkie kilkumilisekundowe mignięcie dialogu widoczne czasem przy zmianie trybu/ustawień"

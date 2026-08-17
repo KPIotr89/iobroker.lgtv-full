@@ -349,8 +349,9 @@ class LgtvFullAdapter extends utils.Adapter {
         this.channels     = [];
 
         // MQTT
-        this.mqttClient  = null;
-        this.mqttPrefix  = 'lgtv';
+        this.mqttClient    = null;
+        this.mqttPrefix    = 'lgtv';
+        this.mqttHeartbeat = null;   // periodic republish of info.connection (self-heal)
 
         this.on('ready',       this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
@@ -893,7 +894,20 @@ class LgtvFullAdapter extends utils.Adapter {
         const cfg    = this.config;
         this.mqttPrefix = (cfg.mqttTopic || 'lgtv').replace(/\/+$/, '');
         const url    = `mqtt://${cfg.mqttHost || 'localhost'}:${cfg.mqttPort || 1883}`;
-        const opts   = { clientId: `iobroker-lgtv-${this.instance}`, clean: true };
+        const opts   = {
+            clientId: `iobroker-lgtv-${this.instance}`,
+            clean: true,
+            // Last Will: if this client drops unexpectedly (iobroker crash,
+            // container killed, network loss), the broker publishes connection
+            // = false so Loxone immediately knows the bridge — not just the TV —
+            // is down, instead of a stale retained "true" lingering forever.
+            will: {
+                topic:   `${this.mqttPrefix}/state/info/connection`,
+                payload: 'false',
+                qos:     0,
+                retain:  true,
+            },
+        };
         if (cfg.mqttUser)     opts.username = cfg.mqttUser;
         if (cfg.mqttPassword) opts.password = cfg.mqttPassword;
 
@@ -916,6 +930,15 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.log.debug(`MQTT: re-publishing ${known.length} cached states`);
                 for (const [id, val] of known) this.mqttPublish(id, val);
             }
+            // Heartbeat: republish the liveness flag every 30s. info.connection
+            // only changes on TV connect/disconnect, so if a subscriber (e.g. the
+            // LoxBerry gateway) ever loses the topic between changes, this brings
+            // it back within 30s — self-healing without a restart.
+            if (this.mqttHeartbeat) clearInterval(this.mqttHeartbeat);
+            this.mqttHeartbeat = setInterval(() => {
+                const v = this._cache['info.connection'];
+                this.mqttPublish('info.connection', v === undefined ? this.connected : v);
+            }, 30000);
         });
 
         this.mqttClient.on('message', (topic, message) => {
@@ -1390,12 +1413,18 @@ class LgtvFullAdapter extends utils.Adapter {
 
     onUnload(callback) {
         try {
-            if (this.reconnTimer) clearTimeout(this.reconnTimer);
-            if (this.pollTimer)   clearInterval(this.pollTimer);
-            if (this._flushTimer) clearTimeout(this._flushTimer);
-            if (this._watchdog)   clearTimeout(this._watchdog);
+            if (this.reconnTimer)   clearTimeout(this.reconnTimer);
+            if (this.pollTimer)     clearInterval(this.pollTimer);
+            if (this._flushTimer)   clearTimeout(this._flushTimer);
+            if (this._watchdog)     clearTimeout(this._watchdog);
+            if (this.mqttHeartbeat) clearInterval(this.mqttHeartbeat);
             for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
+            // Clean shutdown: publish false explicitly (the Last Will only fires
+            // on an *unexpected* drop, not on a graceful end()).
+            if (this.mqttClient && this.mqttClient.connected) {
+                try { this.mqttClient.publish(`${this.mqttPrefix}/state/info/connection`, 'false', { retain: true }); } catch (e) {}
+            }
             if (this.mqttClient)  this.mqttClient.end();
         } catch (e) { this.log.error(e); }
         callback();

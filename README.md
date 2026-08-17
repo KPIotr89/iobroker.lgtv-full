@@ -406,6 +406,12 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.53
+- **Add:** MQTT liveness robustness for `info.connection` (Loxone gates its scenes on this)
+- **Last Will:** if the adapter drops unexpectedly (iobroker crash, container killed), the broker publishes `connection=false` — Loxone sees a dead bridge instead of a stale retained `true`
+- **30 s heartbeat:** republishes `info.connection` so a subscriber that lost the topic between TV connect/disconnect events gets it back within 30 s — self-healing without a restart
+- Clean shutdown now publishes `false` explicitly
+
 ### 1.2.52
 - **Improvement:** Dismiss the settings alert with the shortest possible flash — `closeAlert` now fires immediately inside the `createAlert` response callback (the alert already exists there) instead of first at 40 ms
 - Denser early retries (20 / 50 / 120 / 300 / 700 ms) remain as a safety net for late alert registration
