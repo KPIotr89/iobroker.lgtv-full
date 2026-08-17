@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.53",
+    "version": "1.2.54",
     "news": {
+      "1.2.54": {
+        "en": "Add: new info.heartbeat state (epoch seconds) republished every 30s — unlike info.connection it changes on every tick, so it's visible in gateways (timestamp actually advances) and lets Loxone run a proper watchdog: if info.heartbeat stops advancing for >90s the whole bridge is dead (iobroker/adapter down), not just the TV. Use it alongside info.connection for reliable liveness",
+        "pl": "Dodano: nowy stan info.heartbeat (epoch w sekundach) republikowany co 30 s — w przeciwieństwie do info.connection zmienia się przy każdym pulsie, więc jest widoczny w gatewayach (znacznik czasu faktycznie się przesuwa) i pozwala Loxone na prawdziwy watchdog: jeśli info.heartbeat nie rośnie >90 s, martwy jest cały most (ioBroker/adapter), nie tylko TV. Używać razem z info.connection dla pewnego sygnału życia"
+      },
       "1.2.53": {
         "en": "Add: MQTT liveness robustness for info.connection — it only changed on TV connect/disconnect, so a subscriber that lost the topic between changes (e.g. gateway cache cleared) never got it back until a state change or adapter restart; added a Last Will (broker publishes connection=false if the adapter drops unexpectedly, so Loxone sees a dead bridge instead of a stale 'true') and a 30s heartbeat republish (self-heals a lost topic within 30s); clean shutdown now publishes false explicitly",
         "pl": "Dodano: odporność sygnału życia info.connection — zmieniał się tylko przy połączeniu/rozłączeniu TV, więc subskrybent który zgubił temat między zmianami (np. wyczyszczony cache gatewaya) nie dostawał go aż do zmiany stanu lub restartu adaptera; dodano Last Will (broker publikuje connection=false gdy adapter padnie nieoczekiwanie — Loxone widzi martwy most zamiast starego 'true') i heartbeat co 30 s (samonaprawianie zgubionego tematu w 30 s); czyste zamknięcie publikuje teraz false jawnie"

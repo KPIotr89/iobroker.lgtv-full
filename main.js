@@ -437,6 +437,11 @@ class LgtvFullAdapter extends utils.Adapter {
             common: { name: 'Connected', type: 'boolean', role: 'indicator.connected', read: true, write: false, def: false },
             native: {},
         });
+        // Liveness heartbeat: an epoch-seconds value republished every 30s. It
+        // CHANGES on every tick (unlike info.connection), so it's visible in a
+        // gateway and lets Loxone run a real watchdog — if it stops advancing
+        // for >90s the whole bridge is dead, not just the TV.
+        await st('info.heartbeat', 'Heartbeat (epoch s)', 'number', 'value', false);
 
         await st('power',       'Power (WoL)',         'boolean', 'switch.power', true);
         await st('screenOff',   'Screen off',          'boolean', 'switch',       true);
@@ -938,6 +943,8 @@ class LgtvFullAdapter extends utils.Adapter {
             this.mqttHeartbeat = setInterval(() => {
                 const v = this._cache['info.connection'];
                 this.mqttPublish('info.connection', v === undefined ? this.connected : v);
+                // Changing value → visible tick + Loxone watchdog source
+                this._set('info.heartbeat', Math.floor(Date.now() / 1000));
             }, 30000);
         });
 

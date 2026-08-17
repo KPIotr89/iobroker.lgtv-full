@@ -406,6 +406,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.54
+- **Add:** New `info.heartbeat` state (epoch seconds), republished every 30 s
+- Unlike `info.connection` it **changes** on every tick, so it's visible in gateways (the timestamp actually advances) and lets Loxone run a proper watchdog
+- Loxone pattern: if `info.heartbeat` stops advancing for >90 s, the whole bridge is dead (iobroker/adapter down), not just the TV — use it together with `info.connection`
+
 ### 1.2.53
 - **Add:** MQTT liveness robustness for `info.connection` (Loxone gates its scenes on this)
 - **Last Will:** if the adapter drops unexpectedly (iobroker crash, container killed), the broker publishes `connection=false` — Loxone sees a dead bridge instead of a stale retained `true`
