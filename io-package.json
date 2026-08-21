@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.54",
+    "version": "1.2.55",
     "news": {
+      "1.2.55": {
+        "en": "Fix: removed the direct-SSAP fallback that was itself a popup source — if createAlert failed (typically an invalid/expired pairing key without WRITE_SETTINGS), the adapter called ssap://settings/setSystemSettings directly, which ALWAYS raises the 'unknown message OK' dialog on webOS 24; now it fails loudly instead, and a permission/401 error logs explicit re-pairing instructions. closeAlert failures are logged at warn level (a failing closeAlert is what leaves the empty OK dialog on screen)",
+        "pl": "Poprawka: usunięto awaryjną ścieżkę direct-SSAP, która sama była źródłem popupu — gdy createAlert zawiódł (typowo nieważny/wygasły klucz parowania bez WRITE_SETTINGS), adapter wywoływał ssap://settings/setSystemSettings bezpośrednio, co na webOS 24 ZAWSZE pokazuje dialog 'unknown message OK'; teraz zgłasza błąd zamiast tego, a błąd uprawnień/401 loguje jawną instrukcję ponownego parowania. Błędy closeAlert logowane na poziomie warn (to właśnie nieudany closeAlert zostawia pusty dialog OK na ekranie)"
+      },
       "1.2.54": {
         "en": "Add: new info.heartbeat state (epoch seconds) republished every 30s — unlike info.connection it changes on every tick, so it's visible in gateways (timestamp actually advances) and lets Loxone run a proper watchdog: if info.heartbeat stops advancing for >90s the whole bridge is dead (iobroker/adapter down), not just the TV. Use it alongside info.connection for reliable liveness",
         "pl": "Dodano: nowy stan info.heartbeat (epoch w sekundach) republikowany co 30 s — w przeciwieństwie do info.connection zmienia się przy każdym pulsie, więc jest widoczny w gatewayach (znacznik czasu faktycznie się przesuwa) i pozwala Loxone na prawdziwy watchdog: jeśli info.heartbeat nie rośnie >90 s, martwy jest cały most (ioBroker/adapter), nie tylko TV. Używać razem z info.connection dla pewnego sygnału życia"

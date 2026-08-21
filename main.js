@@ -1038,10 +1038,16 @@ class LgtvFullAdapter extends utils.Adapter {
             if (cb) cb(null, {});
 
             if (!alertId) {
-                this.log.warn(`createAlert failed: ${alertErr && alertErr.message} — direct SSAP fallback`);
-                this.tv.request('ssap://settings/setSystemSettings', { category, settings }, (e) => {
-                    this.log.debug(`direct setSystemSettings fallback: ${e ? e.message : 'ok'}`);
-                });
+                const msg = String((alertErr && (alertErr.message || alertErr)) || 'no alertId');
+                // NO direct-SSAP fallback: ssap://settings/setSystemSettings always
+                // raises the "unknown message OK" dialog on webOS 24. Failing loudly
+                // is better than silently poking the user with a popup.
+                if (/401|permission|denied|insufficient/i.test(msg)) {
+                    this.log.error(`createAlert denied (${msg}) — the pairing key looks invalid/expired. ` +
+                        `Re-pair: delete lgtvkey.txt in the adapter data dir, restart the adapter, accept the prompt on the TV.`);
+                } else {
+                    this.log.warn(`createAlert failed (${msg}) — setting NOT applied (no direct SSAP fallback: it would show the "unknown message OK" dialog)`);
+                }
                 return;
             }
 
@@ -1114,7 +1120,14 @@ class LgtvFullAdapter extends utils.Adapter {
     /** Close a single alert by id (used for dismissal and anti-stacking). */
     _closeAlert(alertId) {
         this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
-            this.log.debug(`closeAlert(${alertId}): ${e ? (e.message || 'err') : 'ok'}`);
+            if (e) {
+                // Visible at warn level: a failing closeAlert is exactly what
+                // leaves the empty "OK" dialog on screen (webOS system-app
+                // updates have changed this behaviour before — 2026-07-19).
+                this.log.warn(`closeAlert(${alertId}) failed: ${e.message || e} — dialog may stay on screen`);
+            } else {
+                this.log.debug(`closeAlert(${alertId}): ok`);
+            }
         });
     }
 

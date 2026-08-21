@@ -406,6 +406,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.55
+- **Fix:** Removed the direct-SSAP fallback — it was itself a popup source. If `createAlert` failed (typically an invalid/expired pairing key without `WRITE_SETTINGS`), the adapter called `ssap://settings/setSystemSettings` directly, which **always** raises the "unknown message OK" dialog on webOS 24
+- Now it fails loudly instead; a permission/401 error logs explicit re-pairing instructions
+- `closeAlert` failures are logged at **warn** level — a failing closeAlert is exactly what leaves the empty OK dialog on screen
+
 ### 1.2.54
 - **Add:** New `info.heartbeat` state (epoch seconds), republished every 30 s
 - Unlike `info.connection` it **changes** on every tick, so it's visible in gateways (the timestamp actually advances) and lets Loxone run a proper watchdog
