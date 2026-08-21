@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.56",
+    "version": "1.2.57",
     "news": {
+      "1.2.57": {
+        "en": "Improvement: stop repeating closeAlert once it has succeeded — logs showed 6 closeAlert calls per alert (immediate + 5 timed retries), 5 of them pointless load on the TV notification service; retries now check whether the alert was already closed and skip themselves",
+        "pl": "Poprawa: koniec z powtarzaniem closeAlert po udanym zamknięciu — w logach było 6 wywołań closeAlert na alert (natychmiastowe + 5 opóźnionych), 5 z nich to zbędne obciążenie usługi powiadomień TV; powtórki sprawdzają teraz czy alert już zamknięty i same się pomijają"
+      },
       "1.2.56": {
         "en": "Improvement: rapid setting writes are coalesced into ONE alert. Home automation sends picture mode and backlight as separate commands milliseconds apart, and every createAlert is another chance for the dialog to flash (logs showed 3 alerts in 4s for a single scene); settings are now buffered per category for 150ms and applied in a single alert, cutting the number of dialogs roughly threefold. Also added a watchdog that warns if the TV stops answering closeAlert (that silence is what leaves an empty OK dialog on screen)",
         "pl": "Poprawa: szybkie zapisy ustawień są łączone w JEDEN alert. Automatyka wysyła tryb obrazu i podświetlenie jako osobne komendy w odstępie milisekund, a każdy createAlert to kolejna szansa na mignięcie dialogu (w logach 3 alerty w 4 s dla jednej sceny); ustawienia są teraz buforowane per kategoria przez 150 ms i aplikowane jednym alertem, co ogranicza liczbę dialogów około trzykrotnie. Dodano też watchdog ostrzegający gdy TV przestaje odpowiadać na closeAlert (ta cisza zostawia pusty dialog OK na ekranie)"

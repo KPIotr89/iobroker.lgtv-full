@@ -1089,9 +1089,16 @@ class LgtvFullAdapter extends utils.Adapter {
             // (weekend webOS system-app updates change this timing — a single
             // early close then gets silently ignored and the empty OK dialog
             // lingers). Dense early retries minimise the visible flash.
+            this._closedAlerts = this._closedAlerts || new Set();
             this._closeAlert(alertId);   // 0 ms — fastest possible
             for (const d of [20, 50, 120, 300, 700]) {
-                setTimeout(() => this._closeAlert(alertId), d);
+                // Skip the retry if an earlier attempt already succeeded —
+                // the logs showed 6 closeAlert calls per alert, 5 of them
+                // pointless load on the TV's notification service.
+                setTimeout(() => {
+                    if (this._closedAlerts.has(alertId)) return;
+                    this._closeAlert(alertId);
+                }, d);
             }
 
             // Older webOS with pointer socket: press ENTER as additional dismiss
@@ -1159,6 +1166,12 @@ class LgtvFullAdapter extends utils.Adapter {
                 // updates have changed this behaviour before — 2026-07-19).
                 this.log.warn(`closeAlert(${alertId}) failed: ${e.message || e} — dialog may stay on screen`);
             } else {
+                // Mark as closed so the scheduled retries below skip themselves
+                if (this._closedAlerts) {
+                    this._closedAlerts.add(alertId);
+                    // keep the set small — only recent ids matter
+                    if (this._closedAlerts.size > 50) this._closedAlerts.clear();
+                }
                 this.log.debug(`closeAlert(${alertId}): ok`);
             }
         });
