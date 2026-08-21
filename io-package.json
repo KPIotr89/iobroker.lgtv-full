@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.55",
+    "version": "1.2.56",
     "news": {
+      "1.2.56": {
+        "en": "Improvement: rapid setting writes are coalesced into ONE alert. Home automation sends picture mode and backlight as separate commands milliseconds apart, and every createAlert is another chance for the dialog to flash (logs showed 3 alerts in 4s for a single scene); settings are now buffered per category for 150ms and applied in a single alert, cutting the number of dialogs roughly threefold. Also added a watchdog that warns if the TV stops answering closeAlert (that silence is what leaves an empty OK dialog on screen)",
+        "pl": "Poprawa: szybkie zapisy ustawień są łączone w JEDEN alert. Automatyka wysyła tryb obrazu i podświetlenie jako osobne komendy w odstępie milisekund, a każdy createAlert to kolejna szansa na mignięcie dialogu (w logach 3 alerty w 4 s dla jednej sceny); ustawienia są teraz buforowane per kategoria przez 150 ms i aplikowane jednym alertem, co ogranicza liczbę dialogów około trzykrotnie. Dodano też watchdog ostrzegający gdy TV przestaje odpowiadać na closeAlert (ta cisza zostawia pusty dialog OK na ekranie)"
+      },
       "1.2.55": {
         "en": "Fix: removed the direct-SSAP fallback that was itself a popup source — if createAlert failed (typically an invalid/expired pairing key without WRITE_SETTINGS), the adapter called ssap://settings/setSystemSettings directly, which ALWAYS raises the 'unknown message OK' dialog on webOS 24; now it fails loudly instead, and a permission/401 error logs explicit re-pairing instructions. closeAlert failures are logged at warn level (a failing closeAlert is what leaves the empty OK dialog on screen)",
         "pl": "Poprawka: usunięto awaryjną ścieżkę direct-SSAP, która sama była źródłem popupu — gdy createAlert zawiódł (typowo nieważny/wygasły klucz parowania bez WRITE_SETTINGS), adapter wywoływał ssap://settings/setSystemSettings bezpośrednio, co na webOS 24 ZAWSZE pokazuje dialog 'unknown message OK'; teraz zgłasza błąd zamiast tego, a błąd uprawnień/401 loguje jawną instrukcję ponownego parowania. Błędy closeAlert logowane na poziomie warn (to właśnie nieudany closeAlert zostawia pusty dialog OK na ekranie)"

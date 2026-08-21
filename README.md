@@ -406,6 +406,11 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ## 📝 Changelog
 
+### 1.2.56
+- **Improvement:** Rapid setting writes are coalesced into **one** alert. Home automation sends picture mode and backlight as separate commands milliseconds apart, and every `createAlert` is another chance for the dialog to flash (logs showed 3 alerts in 4 s for a single scene)
+- Settings are buffered per category for 150 ms and applied in a single alert — roughly 3× fewer dialogs
+- Added a watchdog that warns if the TV stops answering `closeAlert` (that silence is what leaves an empty OK dialog on screen)
+
 ### 1.2.55
 - **Fix:** Removed the direct-SSAP fallback — it was itself a popup source. If `createAlert` failed (typically an invalid/expired pairing key without `WRITE_SETTINGS`), the adapter called `ssap://settings/setSystemSettings` directly, which **always** raises the "unknown message OK" dialog on webOS 24
 - Now it fails loudly instead; a permission/401 error logs explicit re-pairing instructions

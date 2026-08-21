@@ -993,7 +993,31 @@ class LgtvFullAdapter extends utils.Adapter {
      *
      * Fallback: if createAlert itself fails, fall back to direct SSAP (popup may appear).
      */
+    /**
+     * Coalesce rapid writes into ONE alert.
+     * Loxone sends mode and backlight as separate commands milliseconds apart,
+     * and every createAlert is another chance for the dialog to flash on screen
+     * (logs showed 3 alerts in 4s for a single scene). Buffer settings per
+     * category for a moment and apply them in a single alert instead.
+     */
     _setWithAlert(category, settings, cb) {
+        if (!this._alertBuf) this._alertBuf = {};
+        const buf = this._alertBuf[category] || (this._alertBuf[category] = { settings: {}, timer: null });
+        Object.assign(buf.settings, settings);
+        if (cb) cb(null, {});
+        if (buf.timer) return;                 // a flush is already scheduled
+        buf.timer = setTimeout(() => {
+            const merged = buf.settings;
+            buf.settings = {};
+            buf.timer    = null;
+            const n = Object.keys(merged).length;
+            if (n > 1) this.log.debug(`Coalesced ${n} ${category} settings into one alert: ${JSON.stringify(merged)}`);
+            this._flushAlert(category, merged);
+        }, 150);
+    }
+
+    /** Apply one settings batch via the createAlert + Luna callback trick. */
+    _flushAlert(category, settings) {
         const lunaUri    = 'luna://com.webos.settingsservice/setSystemSettings';
         const lunaParams = { category, settings };
 
@@ -1034,8 +1058,6 @@ class LgtvFullAdapter extends utils.Adapter {
         }, (alertErr, alertRes) => {
             const alertId = alertRes && alertRes.alertId;
             this.log.debug(`createAlert cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message || alertErr) : 'ok'}"`);
-
-            if (cb) cb(null, {});
 
             if (!alertId) {
                 const msg = String((alertErr && (alertErr.message || alertErr)) || 'no alertId');
@@ -1119,7 +1141,18 @@ class LgtvFullAdapter extends utils.Adapter {
 
     /** Close a single alert by id (used for dismissal and anti-stacking). */
     _closeAlert(alertId) {
+        // Watchdog: some webOS system-app versions stop answering closeAlert
+        // entirely (silence, not an error) — that's what leaves the empty OK
+        // dialog on screen. Detect the silence and say so once per 5 min.
+        let answered = false;
+        setTimeout(() => {
+            if (answered) return;
+            if (Date.now() - (this._closeAlertWarnTs || 0) < 300000) return;
+            this._closeAlertWarnTs = Date.now();
+            this.log.warn('TV is not responding to closeAlert (no reply) — relying on the alert timeout to self-dismiss; a brief dialog may be visible. Likely a webOS system-app change.');
+        }, 1500);
         this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (e) => {
+            answered = true;
             if (e) {
                 // Visible at warn level: a failing closeAlert is exactly what
                 // leaves the empty "OK" dialog on screen (webOS system-app
