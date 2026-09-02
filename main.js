@@ -442,6 +442,8 @@ class LgtvFullAdapter extends utils.Adapter {
         // gateway and lets Loxone run a real watchdog — if it stops advancing
         // for >90s the whole bridge is dead, not just the TV.
         await st('info.heartbeat', 'Heartbeat (epoch s)', 'number', 'value', false);
+        await st('info.model',    'TV model',            'string', 'text',  false);
+        await st('info.firmware', 'TV firmware version', 'string', 'text',  false);
 
         await st('power',       'Power (WoL)',         'boolean', 'switch.power', true);
         await st('screenOff',   'Screen off',          'boolean', 'switch',       true);
@@ -548,6 +550,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this._warnedIgnore  = false;
             this._set('info.connection', true);
             this._set('power', true);
+            this.requestSystemInfo();
             this.openInputSocket();
             this.subscribeEvents();
             this.requestPictureSettings();
@@ -706,6 +709,27 @@ class LgtvFullAdapter extends utils.Adapter {
             this.log.info(`Replaying queued command: ${key} = ${p.val}`);
             this.setStateAsync(key, p.val, false).catch(() => {});
         }
+    }
+
+    /**
+     * Read model and firmware once per connection. Behaviour differs a lot
+     * between webOS generations (available setting keys, which endpoints answer
+     * at all), so having this in the log turns "which TV is this?" guesswork
+     * into a fact when diagnosing a second/older set.
+     */
+    requestSystemInfo() {
+        this.tv.request('ssap://system/getSystemInfo', (err, res) => {
+            if (err || !res) { this.log.debug(`getSystemInfo: ${err ? err.message : 'no data'}`); return; }
+            const model = res.modelName || res.model || '?';
+            this._set('info.model', String(model));
+            this.log.info(`TV model: ${model}`);
+        });
+        this.tv.request('ssap://com.webos.service.update/getCurrentSWInformation', (err, res) => {
+            if (err || !res) { this.log.debug(`getCurrentSWInformation: ${err ? err.message : 'no data'}`); return; }
+            const fw = `${res.major_ver || '?'}.${res.minor_ver || '?'}`;
+            this._set('info.firmware', fw);
+            this.log.info(`TV firmware: ${fw} (product: ${res.product_name || '?'})`);
+        });
     }
 
     openInputSocket() {
@@ -893,7 +917,16 @@ class LgtvFullAdapter extends utils.Adapter {
                     this.log.debug(`getSystemSettings picture with key filter failed (${err ? err.message : 'empty'}) — retrying without filter`);
                     fetchPicture({ category: 'picture' }, true);
                 } else {
-                    this.log.warn(`getSystemSettings picture returned nothing (${err ? err.message : 'empty settings'}) — this TV may not expose picture settings over SSAP`);
+                    const m = err ? String(err.message || err) : 'empty settings';
+                    if (/500|application error/i.test(m)) {
+                        // 500 = the TV's settings service refused the call, not a
+                        // missing endpoint (that would be 404). Most often the
+                        // stored pairing key was granted with reduced permissions.
+                        this.log.warn(`getSystemSettings picture failed with "${m}" — the settings service refused the request. ` +
+                            `Most likely the pairing key lacks READ_SETTINGS: delete lgtvkey.txt in this instance's data dir, restart it and accept the prompt on the TV.`);
+                    } else {
+                        this.log.warn(`getSystemSettings picture returned nothing (${m}) — this TV may not expose picture settings over SSAP`);
+                    }
                 }
             });
         };

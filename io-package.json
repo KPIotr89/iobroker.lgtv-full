@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.59",
+    "version": "1.2.60",
     "news": {
+      "1.2.60": {
+        "en": "Add: info.model and info.firmware states, read once per connection and logged at info level — behaviour differs a lot between webOS generations, so this replaces guesswork when diagnosing a second/older TV. Also: a 500 Application error from getSystemSettings now says what it usually means (the stored pairing key was granted without READ_SETTINGS) and how to fix it, instead of the misleading \"this TV may not expose picture settings\".",
+        "pl": "Dodano: stany info.model i info.firmware, odczytywane raz na połączenie i logowane na poziomie info — zachowanie różni się mocno między generacjami webOS, więc to zastępuje zgadywanie przy diagnozie drugiego/starszego telewizora. Ponadto: błąd 500 Application error z getSystemSettings mówi teraz, co zwykle oznacza (zapisany klucz parowania przyznany bez READ_SETTINGS) i jak to naprawić, zamiast mylącego \"ten TV może nie udostępniać ustawień obrazu\"."
+      },
       "1.2.59": {
         "en": "Fix: an unconfigured instance (empty TV IP) built \"wss://:3001\" and threw Invalid URL as an unhandled promise rejection on every retry — it now logs one clear error and stops. Also: getSystemSettings now falls back to querying the category WITHOUT a key filter when the filtered request fails or returns nothing; some TV models reject the whole request over one unknown key, which left every picture/sound state null on a second, different TV.",
         "pl": "Poprawka: nieskonfigurowana instancja (puste IP telewizora) budowała adres \"wss://:3001\" i przy każdej próbie rzucała Invalid URL jako nieobsłużone odrzucenie obietnicy — teraz loguje jeden czytelny błąd i przerywa. Ponadto: getSystemSettings ma fallback do zapytania o kategorię BEZ filtra kluczy, gdy zapytanie z filtrem zawiedzie lub nic nie zwróci; część modeli odrzuca całe zapytanie przez jeden nieznany klucz, przez co na drugim, innym telewizorze wszystkie stany obrazu/dźwięku zostawały null."
