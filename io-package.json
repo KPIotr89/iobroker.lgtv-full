@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.60",
+    "version": "1.2.61",
     "news": {
+      "1.2.61": {
+        "en": "Add: automatic probe of getSystemSettings support. Older generations (e.g. webOS 4 / 2018 sets like 65SK9500PLA) reject the call with \"500 Application error\" and accept only certain category/key combinations, so when the normal picture read fails the adapter now asks the TV with six variants and logs which one answers (PROBE OK / PROBE FAIL). This turns per-model guesswork into evidence before adapting the read path.",
+        "pl": "Dodano: automatyczna sonda obsługi getSystemSettings. Starsze generacje (np. webOS 4 / roczniki 2018 jak 65SK9500PLA) odrzucają wywołanie błędem \"500 Application error\" i akceptują tylko wybrane kombinacje kategorii i kluczy, więc gdy normalny odczyt obrazu zawiedzie, adapter przepytuje telewizor sześcioma wariantami i zapisuje w logu, który odpowiada (PROBE OK / PROBE FAIL). Zamienia to zgadywanie per model na twarde dane przed dostosowaniem ścieżki odczytu."
+      },
       "1.2.60": {
         "en": "Add: info.model and info.firmware states, read once per connection and logged at info level — behaviour differs a lot between webOS generations, so this replaces guesswork when diagnosing a second/older TV. Also: a 500 Application error from getSystemSettings now says what it usually means (the stored pairing key was granted without READ_SETTINGS) and how to fix it, instead of the misleading \"this TV may not expose picture settings\".",
         "pl": "Dodano: stany info.model i info.firmware, odczytywane raz na połączenie i logowane na poziomie info — zachowanie różni się mocno między generacjami webOS, więc to zastępuje zgadywanie przy diagnozie drugiego/starszego telewizora. Ponadto: błąd 500 Application error z getSystemSettings mówi teraz, co zwykle oznacza (zapisany klucz parowania przyznany bez READ_SETTINGS) i jak to naprawić, zamiast mylącego \"ten TV może nie udostępniać ustawień obrazu\"."

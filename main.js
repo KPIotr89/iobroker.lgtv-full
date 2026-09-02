@@ -732,6 +732,39 @@ class LgtvFullAdapter extends utils.Adapter {
         });
     }
 
+    /**
+     * One-shot probe used when the normal picture read fails (e.g. "500
+     * Application error" on webOS 4). Older generations accept different
+     * category/key combinations, and the call is rejected outright when the
+     * combination is not valid for that firmware — so instead of guessing,
+     * ask the TV directly and log which variant answers.
+     */
+    probeSettingsSupport() {
+        if (this._probed) return;
+        this._probed = true;
+        const variants = [
+            { label: 'picture + pictureMode',      payload: { category: 'picture', keys: ['pictureMode'] } },
+            { label: 'picture + backlight',        payload: { category: 'picture', keys: ['backlight'] } },
+            { label: 'picture + contrast',         payload: { category: 'picture', keys: ['contrast'] } },
+            { label: 'other + pictureMode',        payload: { category: 'other',   keys: ['pictureMode'] } },
+            { label: 'no category + pictureMode',  payload: { keys: ['pictureMode'] } },
+            { label: 'picture, no keys',           payload: { category: 'picture' } },
+        ];
+        this.log.info('Probing which getSystemSettings variant this TV accepts…');
+        variants.forEach((v, i) => {
+            setTimeout(() => {
+                this.tv.request('ssap://settings/getSystemSettings', v.payload, (err, res) => {
+                    const s = res && res.settings;
+                    if (!err && s && Object.keys(s).length) {
+                        this.log.info(`PROBE OK  [${v.label}] → ${JSON.stringify(s)}`);
+                    } else {
+                        this.log.info(`PROBE FAIL[${v.label}] → ${err ? (err.message || err) : 'empty settings'}`);
+                    }
+                });
+            }, i * 400);
+        });
+    }
+
     openInputSocket() {
         // On webOS 24 (G-series 2024, webOS 8.x):
         //   ssap://com.webos.service.networkinput/getPointerInputService → 404 (service removed)
@@ -918,6 +951,7 @@ class LgtvFullAdapter extends utils.Adapter {
                     fetchPicture({ category: 'picture' }, true);
                 } else {
                     const m = err ? String(err.message || err) : 'empty settings';
+                    this.probeSettingsSupport();
                     if (/500|application error/i.test(m)) {
                         // 500 = the TV's settings service refused the call, not a
                         // missing endpoint (that would be 404). Most often the
