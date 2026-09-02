@@ -402,6 +402,17 @@ class LgtvFullAdapter extends utils.Adapter {
     _verifyApplied(key, val, resend, attempt = 1) {
         const DELAYS = [2000, 4000, 8000, 15000];
         if (Date.now() - this._connectedAt > 120000) return;
+        // Some TVs accept WRITING a setting but refuse to READ it back
+        // (webOS 4 rejects the pictureMode key with 500 while createAlert writes
+        // it fine). Verification is impossible there, so don't retry blindly —
+        // it would resend the mode four times and then log a false failure.
+        if (this._pictureKeys && key.startsWith('picture.')) {
+            const readKey = key === 'picture.mode' ? 'pictureMode' : key.split('.')[1];
+            if (!this._pictureKeys.includes(readKey)) {
+                this.log.debug(`Skipping verify for ${key} — this TV does not expose "${readKey}" for reading`);
+                return;
+            }
+        }
         if (this._verifyTimers[key]) clearTimeout(this._verifyTimers[key]);
         this._verifyTimers[key] = setTimeout(() => {
             delete this._verifyTimers[key];

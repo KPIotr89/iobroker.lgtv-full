@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.62",
+    "version": "1.2.63",
     "news": {
+      "1.2.63": {
+        "en": "Fix: writing and reading a setting are independent paths. A webOS 4 TV rejects the pictureMode key for READING (500) but accepts WRITING it through the createAlert + Luna mechanism — the same approach homebridge-lgwebos-tv uses for webOS < 8. Setting the picture mode therefore already works on such TVs; only verification was broken, resending the mode four times and logging a false failure. Verify-retry is now skipped for keys the TV does not expose for reading.",
+        "pl": "Poprawka: zapis i odczyt ustawienia to niezależne ścieżki. Telewizor z webOS 4 odrzuca klucz pictureMode przy ODCZYCIE (500), ale przyjmuje jego ZAPIS przez mechanizm createAlert + Luna — ten sam, którego homebridge-lgwebos-tv używa dla webOS < 8. Ustawianie trybu obrazu działa więc na takich telewizorach już teraz; zepsuta była tylko weryfikacja, która ponawiała zapis cztery razy i logowała fałszywą porażkę. Verify-retry jest teraz pomijany dla kluczy, których telewizor nie udostępnia do odczytu."
+      },
       "1.2.62": {
         "en": "Fix: automatic discovery of supported picture keys. A single unsupported key makes getSystemSettings fail with \"500 Application error\" for the WHOLE request — on a 2018 webOS 4 set (65SK9500PLA) the pictureMode key was rejected, so every picture value stayed empty even though backlight and contrast were readable. The adapter now probes each key once, remembers the working subset, and uses it for both reads and the push subscription (which previously failed for the same reason). Newer TVs are unaffected: discovery only runs after a failed read.",
         "pl": "Poprawka: automatyczne wykrywanie obsługiwanych kluczy obrazu. Jeden nieobsługiwany klucz powoduje błąd \"500 Application error\" dla CAŁEGO zapytania getSystemSettings — na telewizorze z 2018 na webOS 4 (65SK9500PLA) odrzucany był klucz pictureMode, przez co wszystkie wartości obrazu zostawały puste, mimo że podświetlenie i kontrast dawały się odczytać. Adapter sprawdza teraz każdy klucz osobno, zapamiętuje działający podzbiór i używa go zarówno do odczytu, jak i do subskrypcji push (która wcześniej padała z tego samego powodu). Nowsze telewizory bez zmian: wykrywanie uruchamia się dopiero po nieudanym odczycie."
