@@ -409,10 +409,17 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 Capabilities differ significantly between webOS generations. The adapter probes
 the TV on first connect and adapts, logging what it found:
 
-| Generation | Picture mode | Picture values | Notes |
-|------------|--------------|----------------|-------|
-| webOS 6+ (2021+, e.g. OLED G4) | ✅ full | ✅ all keys | Settings written via the `createAlert` + Luna trick (no popup) |
-| webOS 4 (2018, e.g. 65SK9500PLA) | ❌ not exposed | ✅ `brightness`, `contrast`, `backlight`, `color` | `pictureMode` and `sharpness` are rejected over SSAP |
+| Generation | Picture mode — write | Picture mode — read | Other picture values |
+|------------|----------------------|---------------------|----------------------|
+| webOS 6+ (2021+, e.g. OLED G4) | ✅ | ✅ (push + poll) | ✅ all keys |
+| webOS 4 (2018, e.g. 65SK9500PLA) | ✅ | ❌ rejected (`500`) | ✅ `brightness`, `contrast`, `backlight`, `color` |
+
+**Writing and reading are independent paths.** On webOS 4 the `pictureMode` key is
+rejected for *reading*, yet the mode can still be *set* through the `createAlert` +
+Luna mechanism — confirmed on a 65SK9500PLA. On such TVs `picture.mode` works
+one-way: it reflects what you sent, not what the TV reports, and a change made with
+the remote is not detected. Don't build automation logic that reads the mode back
+on those models.
 
 **Why a single key matters:** `getSystemSettings` fails with `500 Application error`
 for the *whole* request if one requested key is unsupported. Since 1.2.62 the adapter
