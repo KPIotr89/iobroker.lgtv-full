@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.61",
+    "version": "1.2.62",
     "news": {
+      "1.2.62": {
+        "en": "Fix: automatic discovery of supported picture keys. A single unsupported key makes getSystemSettings fail with \"500 Application error\" for the WHOLE request — on a 2018 webOS 4 set (65SK9500PLA) the pictureMode key was rejected, so every picture value stayed empty even though backlight and contrast were readable. The adapter now probes each key once, remembers the working subset, and uses it for both reads and the push subscription (which previously failed for the same reason). Newer TVs are unaffected: discovery only runs after a failed read.",
+        "pl": "Poprawka: automatyczne wykrywanie obsługiwanych kluczy obrazu. Jeden nieobsługiwany klucz powoduje błąd \"500 Application error\" dla CAŁEGO zapytania getSystemSettings — na telewizorze z 2018 na webOS 4 (65SK9500PLA) odrzucany był klucz pictureMode, przez co wszystkie wartości obrazu zostawały puste, mimo że podświetlenie i kontrast dawały się odczytać. Adapter sprawdza teraz każdy klucz osobno, zapamiętuje działający podzbiór i używa go zarówno do odczytu, jak i do subskrypcji push (która wcześniej padała z tego samego powodu). Nowsze telewizory bez zmian: wykrywanie uruchamia się dopiero po nieudanym odczycie."
+      },
       "1.2.61": {
         "en": "Add: automatic probe of getSystemSettings support. Older generations (e.g. webOS 4 / 2018 sets like 65SK9500PLA) reject the call with \"500 Application error\" and accept only certain category/key combinations, so when the normal picture read fails the adapter now asks the TV with six variants and logs which one answers (PROBE OK / PROBE FAIL). This turns per-model guesswork into evidence before adapting the read path.",
         "pl": "Dodano: automatyczna sonda obsługi getSystemSettings. Starsze generacje (np. webOS 4 / roczniki 2018 jak 65SK9500PLA) odrzucają wywołanie błędem \"500 Application error\" i akceptują tylko wybrane kombinacje kategorii i kluczy, więc gdy normalny odczyt obrazu zawiedzie, adapter przepytuje telewizor sześcioma wariantami i zapisuje w logu, który odpowiada (PROBE OK / PROBE FAIL). Zamienia to zgadywanie per model na twarde dane przed dostosowaniem ścieżki odczytu."

@@ -739,6 +739,38 @@ class LgtvFullAdapter extends utils.Adapter {
      * combination is not valid for that firmware — so instead of guessing,
      * ask the TV directly and log which variant answers.
      */
+    /**
+     * Discover which picture keys this TV actually supports.
+     * A single unsupported key makes the whole getSystemSettings call fail with
+     * "500 Application error" — on a 2018 webOS 4 set (65SK9500PLA) asking for
+     * pictureMode killed the request, so every picture state stayed null even
+     * though backlight/contrast were readable. Query each key on its own once,
+     * remember the working subset, and use only that from then on.
+     */
+    _discoverPictureKeys(cb) {
+        const candidates = ['pictureMode', 'brightness', 'contrast', 'backlight', 'oledLight', 'color', 'sharpness'];
+        const supported  = [];
+        let i = 0;
+        const next = () => {
+            if (i >= candidates.length) {
+                this._pictureKeys = supported;
+                this.log.info(`Supported picture keys on this TV: ${supported.join(', ') || '(none)'}`);
+                if (!supported.includes('pictureMode')) {
+                    this.log.warn('This TV does not expose "pictureMode" over SSAP — picture.mode / picture.modeNum will stay empty on this instance; the other picture values work normally.');
+                }
+                if (cb) cb(supported);
+                return;
+            }
+            const key = candidates[i++];
+            this.tv.request('ssap://settings/getSystemSettings', { category: 'picture', keys: [key] }, (err, res) => {
+                const s = res && res.settings;
+                if (!err && s && Object.keys(s).length) supported.push(key);
+                setTimeout(next, 120);
+            });
+        };
+        next();
+    }
+
     probeSettingsSupport() {
         if (this._probed) return;
         this._probed = true;
@@ -882,25 +914,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
         });
 
-        // Push subscription for picture settings changes
-        this.tv.subscribe('ssap://settings/getSystemSettings',
-            { category: 'picture', keys: ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'] },
-            (err, res) => {
-                if (err || !res || !res.settings) return;
-                const s = res.settings;
-                this.log.debug(`Picture push: ${JSON.stringify(s)}`);
-                if (s.pictureMode !== undefined) {
-                    this._setConfirmed('picture.mode', s.pictureMode);
-                    const n = PICTURE_MODE_NUM[s.pictureMode];
-                    this._set('picture.modeNum', n !== undefined ? n : 0);
-                }
-                if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
-                if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
-                if (s.backlight  !== undefined) this._setConfirmed('picture.backlight',  parseInt(s.backlight));
-                if (s.color      !== undefined) this._setConfirmed('picture.color',      parseInt(s.color));
-                if (s.sharpness  !== undefined) this._setConfirmed('picture.sharpness',  parseInt(s.sharpness));
-            }
-        );
+        this.subscribePicture();
 
         // Push subscription for sound mode changes
         this.tv.subscribe('ssap://settings/getSystemSettings',
@@ -916,6 +930,33 @@ class LgtvFullAdapter extends utils.Adapter {
                 }
             }
         );
+    }
+
+    /**
+     * Subscribe to picture-setting pushes. Extracted so it can be re-issued
+     * after key discovery: the first subscription (with the default key list)
+     * fails outright on TVs that reject one of the keys.
+     */
+    subscribePicture() {
+        const keys = this._pictureKeys && this._pictureKeys.length
+            ? this._pictureKeys
+            : ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
+        this.tv.subscribe('ssap://settings/getSystemSettings', { category: 'picture', keys }, (err, res) => {
+            if (err || !res || !res.settings) return;
+            const s = res.settings;
+            this.log.debug(`Picture push: ${JSON.stringify(s)}`);
+            if (s.pictureMode !== undefined) {
+                this._setConfirmed('picture.mode', s.pictureMode);
+                const n = PICTURE_MODE_NUM[s.pictureMode];
+                this._set('picture.modeNum', n !== undefined ? n : 0);
+            }
+            if (s.brightness !== undefined) this._setConfirmed('picture.brightness', parseInt(s.brightness));
+            if (s.contrast   !== undefined) this._setConfirmed('picture.contrast',   parseInt(s.contrast));
+            const bl = s.oledLight !== undefined ? s.oledLight : s.backlight;
+            if (bl          !== undefined) this._setConfirmed('picture.backlight',  parseInt(bl));
+            if (s.color      !== undefined) this._setConfirmed('picture.color',      parseInt(s.color));
+            if (s.sharpness  !== undefined) this._setConfirmed('picture.sharpness',  parseInt(s.sharpness));
+        });
     }
 
     requestPictureSettings() {
@@ -936,7 +977,10 @@ class LgtvFullAdapter extends utils.Adapter {
             if (s.sharpness  !== undefined) this._setConfirmed('picture.sharpness',  parseInt(s.sharpness));
         };
 
-        const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
+        // Use the discovered subset once we know it (older TVs reject unknown keys)
+        const KEYS = this._pictureKeys && this._pictureKeys.length
+            ? this._pictureKeys
+            : ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
 
         // Some models reject the WHOLE request when the key filter contains a
         // key they don't know (seen on a second, different TV: every picture
@@ -947,7 +991,19 @@ class LgtvFullAdapter extends utils.Adapter {
                 const s = res && res.settings;
                 if (!err && s && Object.keys(s).length) { applySettings(s); return; }
                 if (!isFallback) {
-                    this.log.debug(`getSystemSettings picture with key filter failed (${err ? err.message : 'empty'}) — retrying without filter`);
+                    // One unsupported key rejects the whole call — find out which
+                    // keys this TV actually knows, then read (and re-subscribe)
+                    // with that subset instead of giving up.
+                    if (!this._pictureKeys) {
+                        this.log.debug(`getSystemSettings picture failed (${err ? err.message : 'empty'}) — discovering supported keys`);
+                        this._discoverPictureKeys((supported) => {
+                            if (supported.length) {
+                                this.requestPictureSettings();
+                                this.subscribePicture();
+                            }
+                        });
+                        return;
+                    }
                     fetchPicture({ category: 'picture' }, true);
                 } else {
                     const m = err ? String(err.message || err) : 'empty settings';
