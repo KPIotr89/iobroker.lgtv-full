@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.58",
+    "version": "1.2.59",
     "news": {
+      "1.2.59": {
+        "en": "Fix: an unconfigured instance (empty TV IP) built \"wss://:3001\" and threw Invalid URL as an unhandled promise rejection on every retry — it now logs one clear error and stops. Also: getSystemSettings now falls back to querying the category WITHOUT a key filter when the filtered request fails or returns nothing; some TV models reject the whole request over one unknown key, which left every picture/sound state null on a second, different TV.",
+        "pl": "Poprawka: nieskonfigurowana instancja (puste IP telewizora) budowała adres \"wss://:3001\" i przy każdej próbie rzucała Invalid URL jako nieobsłużone odrzucenie obietnicy — teraz loguje jeden czytelny błąd i przerywa. Ponadto: getSystemSettings ma fallback do zapytania o kategorię BEZ filtra kluczy, gdy zapytanie z filtrem zawiedzie lub nic nie zwróci; część modeli odrzuca całe zapytanie przez jeden nieznany klucz, przez co na drugim, innym telewizorze wszystkie stany obrazu/dźwięku zostawały null."
+      },
       "1.2.58": {
         "en": "Fix: the instance configuration page did not open (blank) — io-package.json was missing the adminUI declaration, which ioBroker Admin 6+ requires to render admin/jsonConfig.json. Added adminUI.config=json and the missing MQTT keys in native defaults so a freshly created instance (e.g. a second TV) starts with a complete config. NOTE: when deploying manually, admin/jsonConfig.json must be copied too — the old curl deploy only replaced main.js and the two JSON files.",
         "pl": "Poprawka: strona konfiguracji instancji nie otwierała się (pusta) — w io-package.json brakowało deklaracji adminUI, której ioBroker Admin 6+ wymaga do wyrenderowania admin/jsonConfig.json. Dodano adminUI.config=json oraz brakujące klucze MQTT w domyślnych native, żeby świeżo utworzona instancja (np. drugi TV) startowała z kompletną konfiguracją. UWAGA: przy ręcznym wdrożeniu trzeba kopiować także admin/jsonConfig.json — stary deploy przez curl podmieniał tylko main.js i dwa pliki JSON."

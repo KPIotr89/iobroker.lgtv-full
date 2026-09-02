@@ -508,6 +508,18 @@ class LgtvFullAdapter extends utils.Adapter {
             try { this.tv.disconnect(); } catch (e) { /* ignore */ }
         }
 
+        // Guard: an unconfigured instance (empty IP) used to build "wss://:3001",
+        // which throws SyntaxError: Invalid URL inside the ws constructor and
+        // surfaced as an unhandled promise rejection every retry.
+        if (!this.config.host) {
+            if (!this._warnedNoHost) {
+                this.log.error('No TV IP address configured — open the instance settings and set the TV IP. Not connecting.');
+                this._warnedNoHost = true;
+            }
+            this._connecting = false;
+            return;
+        }
+
         const keyFile = path.join(utils.getAbsoluteInstanceDataDir(this), 'lgtvkey.txt');
         const useSSL  = this.config.useSSL !== false;
         const port    = useSSL ? 3001 : 3000;
@@ -869,19 +881,34 @@ class LgtvFullAdapter extends utils.Adapter {
 
         const KEYS = ['pictureMode', 'brightness', 'contrast', 'backlight', 'color', 'sharpness'];
 
-        this.tv.request('ssap://settings/getSystemSettings',
-            { category: 'picture', keys: KEYS },
-            (err, res) => {
-                if (!err && res && res.settings) { applySettings(res.settings); return; }
-                this.log.debug(`getSystemSettings picture error: ${err ? err.message : 'no settings'}`);
-            }
-        );
+        // Some models reject the WHOLE request when the key filter contains a
+        // key they don't know (seen on a second, different TV: every picture
+        // state stayed null). Fall back to asking for the category without any
+        // key filter, which every webOS version answers with what it has.
+        const fetchPicture = (payload, isFallback) => {
+            this.tv.request('ssap://settings/getSystemSettings', payload, (err, res) => {
+                const s = res && res.settings;
+                if (!err && s && Object.keys(s).length) { applySettings(s); return; }
+                if (!isFallback) {
+                    this.log.debug(`getSystemSettings picture with key filter failed (${err ? err.message : 'empty'}) — retrying without filter`);
+                    fetchPicture({ category: 'picture' }, true);
+                } else {
+                    this.log.warn(`getSystemSettings picture returned nothing (${err ? err.message : 'empty settings'}) — this TV may not expose picture settings over SSAP`);
+                }
+            });
+        };
+        fetchPicture({ category: 'picture', keys: KEYS }, false);
     }
 
     requestSoundSettings() {
-        this.tv.request('ssap://settings/getSystemSettings',
-            { category: 'sound', keys: ['soundMode'] },
-            (err, res) => {
+        const fetchSound = (payload, isFallback) => {
+            this.tv.request('ssap://settings/getSystemSettings', payload, (err, res) => {
+                const s = res && res.settings;
+                if ((err || !s || !s.soundMode) && !isFallback) {
+                    this.log.debug(`getSystemSettings sound with key filter failed (${err ? err.message : 'empty'}) — retrying without filter`);
+                    fetchSound({ category: 'sound' }, true);
+                    return;
+                }
                 if (err) { this.log.debug(`getSystemSettings sound error: ${err.message}`); return; }
                 if (res && res.settings && res.settings.soundMode) {
                     const mode = res.settings.soundMode;
@@ -889,8 +916,9 @@ class LgtvFullAdapter extends utils.Adapter {
                     const n = SOUND_MODE_NUM[mode];
                     if (n !== undefined) this._set('audio.soundModeNum', n);
                 }
-            }
-        );
+            });
+        };
+        fetchSound({ category: 'sound', keys: ['soundMode'] }, false);
     }
 
     // ─── MQTT ──────────────────────────────────────────────────────────────────
