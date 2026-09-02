@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.57",
+    "version": "1.2.58",
     "news": {
+      "1.2.58": {
+        "en": "Fix: the instance configuration page did not open (blank) — io-package.json was missing the adminUI declaration, which ioBroker Admin 6+ requires to render admin/jsonConfig.json. Added adminUI.config=json and the missing MQTT keys in native defaults so a freshly created instance (e.g. a second TV) starts with a complete config. NOTE: when deploying manually, admin/jsonConfig.json must be copied too — the old curl deploy only replaced main.js and the two JSON files.",
+        "pl": "Poprawka: strona konfiguracji instancji nie otwierała się (pusta) — w io-package.json brakowało deklaracji adminUI, której ioBroker Admin 6+ wymaga do wyrenderowania admin/jsonConfig.json. Dodano adminUI.config=json oraz brakujące klucze MQTT w domyślnych native, żeby świeżo utworzona instancja (np. drugi TV) startowała z kompletną konfiguracją. UWAGA: przy ręcznym wdrożeniu trzeba kopiować także admin/jsonConfig.json — stary deploy przez curl podmieniał tylko main.js i dwa pliki JSON."
+      },
       "1.2.57": {
         "en": "Improvement: stop repeating closeAlert once it has succeeded — logs showed 6 closeAlert calls per alert (immediate + 5 timed retries), 5 of them pointless load on the TV notification service; retries now check whether the alert was already closed and skip themselves",
         "pl": "Poprawa: koniec z powtarzaniem closeAlert po udanym zamknięciu — w logach było 6 wywołań closeAlert na alert (natychmiastowe + 5 opóźnionych), 5 z nich to zbędne obciążenie usługi powiadomień TV; powtórki sprawdzają teraz czy alert już zamknięty i same się pomijają"
@@ -305,8 +309,17 @@
       "en": "Full-featured LG WebOS TV adapter: Picture Mode, Sound Mode, inputs, channels, remote control, WoL",
       "pl": "Rozbudowany adapter LG WebOS TV: tryby obrazu, dźwięku, wejścia, kanały, pilot, WoL"
     },
-    "authors": ["KPIotr89"],
-    "keywords": ["lg", "webos", "tv", "oled", "smart tv", "lgtv"],
+    "authors": [
+      "KPIotr89"
+    ],
+    "keywords": [
+      "lg",
+      "webos",
+      "tv",
+      "oled",
+      "smart tv",
+      "lgtv"
+    ],
     "platform": "Javascript/Node.js",
     "main": "main.js",
     "readme": "https://github.com/KPIotr89/iobroker.lgtv-full/blob/main/README.md",
@@ -317,22 +330,35 @@
     "connectionType": "local",
     "dataSource": "push",
     "dependencies": [
-      { "js-controller": ">=3.0.0" }
+      {
+        "js-controller": ">=3.0.0"
+      }
     ],
-    "nodeVersion": ">=14"
+    "nodeVersion": ">=14",
+    "adminUI": {
+      "config": "json"
+    }
   },
   "native": {
     "host": "",
     "macAddress": "",
     "reconnectInterval": 10,
-    "useSSL": true
+    "useSSL": true,
+    "mqttEnabled": false,
+    "mqttHost": "192.168.1.10",
+    "mqttPort": 1883,
+    "mqttTopic": "lgtv",
+    "mqttUser": "",
+    "mqttPassword": ""
   },
   "objects": [],
   "instanceObjects": [
     {
       "_id": "info",
       "type": "channel",
-      "common": { "name": "Information" },
+      "common": {
+        "name": "Information"
+      },
       "native": {}
     },
     {
