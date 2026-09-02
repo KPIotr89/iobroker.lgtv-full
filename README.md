@@ -404,6 +404,24 @@ Check the debug logs in ioBroker Admin (set log level to **debug**). Common caus
 
 ---
 
+## 🖥️ Model compatibility
+
+Capabilities differ significantly between webOS generations. The adapter probes
+the TV on first connect and adapts, logging what it found:
+
+| Generation | Picture mode | Picture values | Notes |
+|------------|--------------|----------------|-------|
+| webOS 6+ (2021+, e.g. OLED G4) | ✅ full | ✅ all keys | Settings written via the `createAlert` + Luna trick (no popup) |
+| webOS 4 (2018, e.g. 65SK9500PLA) | ❌ not exposed | ✅ `brightness`, `contrast`, `backlight`, `color` | `pictureMode` and `sharpness` are rejected over SSAP |
+
+**Why a single key matters:** `getSystemSettings` fails with `500 Application error`
+for the *whole* request if one requested key is unsupported. Since 1.2.62 the adapter
+discovers the working subset per TV and uses only that — check the log line
+`Supported picture keys on this TV: …`.
+
+Power, volume, mute, inputs, apps, channels, toast notifications and remote buttons
+work across all supported generations.
+
 ## 📝 Changelog
 
 ### 1.2.56
