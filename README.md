@@ -411,8 +411,27 @@ the TV on first connect and adapts, logging what it found:
 
 | Generation | Picture mode — write | Picture mode — read | Other picture values |
 |------------|----------------------|---------------------|----------------------|
-| webOS 6+ (2021+, e.g. OLED G4) | ✅ | ✅ (push + poll) | ✅ all keys |
+| webOS 26 (TV sw 43.x) | ✅ via alert only | ✅ | ✅ all keys |
+| webOS 6–8 (2021+, e.g. OLED G4) | ✅ | ✅ (push + poll) | ✅ all keys |
 | webOS 4 (2018, e.g. 65SK9500PLA) | ✅ | ❌ rejected (`500`) | ✅ `brightness`, `contrast`, `backlight`, `color` |
+
+### webOS 26: blacklisted signing certificate
+
+From webOS 26 LG rejects the shared `com.lge.test` signing certificate that lgtv2
+and most integrations embed: registration fails with
+`403 Pairing rejected: blacklisted certificate detected` and **no pairing prompt
+is shown at all**. The adapter detects this and re-registers with an unsigned
+manifest, which pairs normally.
+
+Consequence: `WRITE_SETTINGS` came only from the signed manifest, so a direct
+`ssap://settings/setSystemSettings` now returns `401 insufficient permissions`.
+Settings still apply, because `createAlert` runs the Luna call inside the TV's own
+system context where that permission is not checked — the alert is no longer a
+workaround for a popup, it is the only write path.
+
+**Do not send more than one `closeAlert` per alert.** Extra calls (retry bursts,
+anti-stacking pre-closes, or the `notifications/getStatus` auto-dismiss firing on
+your own alert) land on an already-closed alert and make the dialog blink on screen.
 
 **Writing and reading are independent paths.** On webOS 4 the `pictureMode` key is
 rejected for *reading*, yet the mode can still be *set* through the `createAlert` +
