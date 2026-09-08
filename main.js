@@ -1341,16 +1341,23 @@ class LgtvFullAdapter extends utils.Adapter {
             // early close then gets silently ignored and the empty OK dialog
             // lingers). Dense early retries minimise the visible flash.
             this._closedAlerts = this._closedAlerts || new Set();
-            this._closeAlert(alertId);   // 0 ms — fastest possible
-            for (const d of [20, 50, 120, 300, 700]) {
-                // Skip the retry if an earlier attempt already succeeded —
-                // the logs showed 6 closeAlert calls per alert, 5 of them
-                // pointless load on the TV's notification service.
-                setTimeout(() => {
-                    if (this._closedAlerts.has(alertId)) return;
-                    this._closeAlert(alertId);
-                }, d);
-            }
+            // ONE closeAlert, fired immediately. Side-by-side testing on webOS 26
+            // showed this dismisses the dialog with no visible flash at all, while
+            // the previous burst of six calls (immediate + five timed retries) made
+            // the dialog blink — the extra calls land on an already-closed alert
+            // and disturb the notification service. Retries now happen only if the
+            // first attempt actually failed or went unanswered.
+            this._closeAlert(alertId);
+            setTimeout(() => {
+                if (this._closedAlerts.has(alertId)) return;   // first close worked
+                this.log.debug(`closeAlert(${alertId}) unconfirmed — retrying`);
+                for (const d of [0, 250, 700]) {
+                    setTimeout(() => {
+                        if (this._closedAlerts.has(alertId)) return;
+                        this._closeAlert(alertId);
+                    }, d);
+                }
+            }, 800);
 
             // Older webOS with pointer socket: press ENTER as additional dismiss
             if (this.inputSocket) {

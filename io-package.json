@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.66",
+    "version": "1.2.67",
     "news": {
+      "1.2.67": {
+        "en": "Fix: the settings dialog briefly flashed on screen on webOS 26. Side-by-side testing showed the alert parameters were not the cause — a single immediate closeAlert dismisses it with nothing visible, while the previous burst of six calls (immediate plus five timed retries) made it blink, because the extra calls land on an already-closed alert and disturb the notification service. Now one closeAlert is sent, and retries only follow if it failed or went unanswered within 800ms.",
+        "pl": "Poprawka: dialog ustawień migał na moment na ekranie na webOS 26. Testy porównawcze pokazały, że parametry alertu nie były przyczyną — pojedynczy natychmiastowy closeAlert zamyka go bez śladu na ekranie, podczas gdy dotychczasowa seria sześciu wywołań (natychmiastowe plus pięć opóźnionych) powodowała mignięcie, bo nadmiarowe wywołania trafiają w już zamknięty alert i zaburzają usługę powiadomień. Teraz wysyłane jest jedno closeAlert, a powtórki tylko gdy zawiedzie lub pozostanie bez odpowiedzi przez 800 ms."
+      },
       "1.2.66": {
         "en": "Fix: webOS 26 (TV sw 43.x) refuses pairing with \"403 Pairing rejected: blacklisted certificate detected\" and never shows the on-screen prompt — LG blacklisted the shared com.lge.test signing certificate used by lgtv2 and most integrations (the same breakage hit LGTVCompanion). The adapter now detects that refusal and automatically retries registration with an UNSIGNED manifest (plain permissions), which pairs normally. Trade-off: the signed-only WRITE_SETTINGS permission is lost, so picture/sound mode writes may be refused on such firmware; power, volume, inputs, apps, channels, toasts and remote keys keep working.",
         "pl": "Poprawka: webOS 26 (oprogramowanie TV 43.x) odrzuca parowanie błędem \"403 Pairing rejected: blacklisted certificate detected\" i nie pokazuje okna na ekranie — LG wciągnęło na czarną listę wspólny certyfikat podpisujący com.lge.test, używany przez lgtv2 i większość integracji (ta sama awaria dotknęła LGTVCompanion). Adapter wykrywa teraz tę odmowę i automatycznie ponawia rejestrację z manifestem NIEPODPISANYM (zwykłe uprawnienia), co paruje się normalnie. Kompromis: tracimy uprawnienie WRITE_SETTINGS dostępne tylko dla podpisanego manifestu, więc zapis trybów obrazu/dźwięku może być odrzucany na takim firmware; zasilanie, głośność, wejścia, aplikacje, kanały, powiadomienia i przyciski pilota działają dalej."
