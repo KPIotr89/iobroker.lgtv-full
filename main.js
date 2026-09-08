@@ -20,6 +20,27 @@ const mqtt      = require('mqtt');
 // Manifest from lgtv2 (merdok/lgtv2) — contains a real RSA-SHA256 signature
 // issued by LG Electronics. The TV validates this signature and grants the
 // signed.permissions (including WRITE_SETTINGS) which enables setSystemSettings writes.
+const LG_MANIFEST_PERMISSIONS = [
+    'LAUNCH', 'LAUNCH_WEBAPP', 'APP_TO_APP', 'CLOSE', 'TEST_OPEN', 'TEST_PROTECTED',
+    'CONTROL_AUDIO', 'CONTROL_DISPLAY', 'CONTROL_INPUT_JOYSTICK',
+    'CONTROL_MOUSE_AND_KEYBOARD', 'CONTROL_INPUT_TEXT',
+    'CONTROL_INPUT_MEDIA_RECORDING', 'CONTROL_INPUT_MEDIA_PLAYBACK',
+    'CONTROL_INPUT_TV', 'CONTROL_POWER', 'READ_APP_STATUS',
+    'READ_CURRENT_CHANNEL', 'READ_INPUT_DEVICE_LIST', 'READ_NETWORK_STATE',
+    'READ_RUNNING_APPS', 'READ_TV_CHANNEL_LIST', 'WRITE_NOTIFICATION_TOAST',
+    'READ_POWER_STATE', 'READ_COUNTRY_INFO', 'READ_SETTINGS',
+    'CONTROL_TV_SCREEN', 'CONTROL_TV_STANBY', 'CONTROL_FAVORITE_GROUP',
+    'CONTROL_USER_INFO', 'CHECK_BLUETOOTH_DEVICE', 'CONTROL_BLUETOOTH',
+    'CONTROL_TIMER_INFO', 'STB_INTERNAL_CONNECTION', 'CONTROL_RECORDING',
+    'READ_RECORDING_STATE', 'WRITE_RECORDING_LIST', 'READ_RECORDING_LIST',
+    'READ_RECORDING_SCHEDULE', 'WRITE_RECORDING_SCHEDULE', 'READ_STORAGE_DEVICE_LIST',
+    'READ_TV_PROGRAM_INFO', 'CONTROL_BOX_CHANNEL', 'READ_TV_ACR_AUTH_TOKEN',
+    'READ_TV_CONTENT_STATE', 'READ_TV_CURRENT_TIME', 'ADD_LAUNCHER_CHANNEL',
+    'SET_CHANNEL_SKIP', 'RELEASE_CHANNEL_SKIP', 'CONTROL_CHANNEL_BLOCK',
+    'DELETE_SELECT_CHANNEL', 'CONTROL_CHANNEL_GROUP', 'SCAN_TV_CHANNELS',
+    'CONTROL_TV_POWER', 'CONTROL_WOL',
+];
+
 const LG_MANIFEST = {
     manifestVersion: 1,
     appVersion: '1.1',
@@ -69,6 +90,19 @@ const LG_MANIFEST = {
     }],
 };
 
+// Fallback manifest WITHOUT the signed block.
+// From webOS 26 (TV sw 43.x) LG blacklisted the shared "com.lge.test" signing
+// certificate used by lgtv2 and most integrations: registration is refused with
+// "403 Pairing rejected: blacklisted certificate detected" and the TV never even
+// shows the pairing prompt. Registering with plain permissions still works and
+// produces a normal prompt — at the cost of the signed-only permissions
+// (WRITE_SETTINGS), so picture/sound mode writes may no longer be granted.
+const LG_MANIFEST_UNSIGNED = {
+    manifestVersion: 1,
+    appVersion: '1.0',
+    permissions: LG_MANIFEST_PERMISSIONS,
+};
+
 // ─── LG WebOS WebSocket connection class ─────────────────────────────────────
 
 class LgTvSocket {
@@ -81,6 +115,7 @@ class LgTvSocket {
         this.pending   = {};   // id → callback (one-shot requests)
         this.subs      = {};   // id → callback (subscriptions)
         this.clientKey = null;
+        this.unsigned  = !!config.unsigned;   // register without the signed manifest
         this._pingTimer = null;
 
         this._onConnect = () => {};
@@ -119,7 +154,7 @@ class LgTvSocket {
             const payload = {
                 forcePairing: false,
                 pairingType: 'PROMPT',
-                manifest: LG_MANIFEST,
+                manifest: this.unsigned ? LG_MANIFEST_UNSIGNED : LG_MANIFEST,
             };
             if (this.clientKey) payload['client-key'] = this.clientKey;
             this._send({ type: 'register', id: 'register0', payload });
@@ -551,7 +586,7 @@ class LgtvFullAdapter extends utils.Adapter {
         }
         // subsequent attempts: logged via on('close') when delay changes
 
-        this.tv = new LgTvSocket({ url, keyFile, timeout: 5000 });
+        this.tv = new LgTvSocket({ url, keyFile, timeout: 5000, unsigned: !!this._unsignedManifest });
         this.tv._logger = (msg) => this.log.debug(msg);
 
         this.tv.on('connect', () => {
@@ -657,9 +692,29 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('registerError', (raw) => {
+            const txt = String(raw);
             // Visible without debug level — this is the only clue when the TV
             // refuses registration and shows no pairing prompt at all.
-            this.log.warn(`TV refused registration: ${String(raw).substring(0, 400)}`);
+            this.log.warn(`TV refused registration: ${txt.substring(0, 400)}`);
+
+            // webOS 26+ blacklisted the shared signing certificate used by the
+            // signed manifest. Retry once with plain permissions — that still
+            // pairs and shows the prompt, but without the signed-only rights.
+            if (/blacklist|403/i.test(txt) && !this._unsignedManifest) {
+                this._unsignedManifest = true;
+                this._pairingPrompted  = false;
+                this.log.warn('Signing certificate is blacklisted by this firmware — retrying registration WITHOUT the signed manifest. ' +
+                    'Basic control will work; picture/sound mode writes may be refused (they need WRITE_SETTINGS, which only the signed manifest grants).');
+                if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; }
+                this._connecting = false;
+                if (this.tv) {
+                    this.tv._onClose = () => {};
+                    this.tv._onError = () => {};
+                    try { this.tv.disconnect(); } catch (e) { /* ignore */ }
+                }
+                if (this.reconnTimer) clearTimeout(this.reconnTimer);
+                this.reconnTimer = setTimeout(() => this.connect(), 2000);
+            }
         });
 
         this.tv.on('prompt', () => {

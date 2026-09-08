@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.65",
+    "version": "1.2.66",
     "news": {
+      "1.2.66": {
+        "en": "Fix: webOS 26 (TV sw 43.x) refuses pairing with \"403 Pairing rejected: blacklisted certificate detected\" and never shows the on-screen prompt — LG blacklisted the shared com.lge.test signing certificate used by lgtv2 and most integrations (the same breakage hit LGTVCompanion). The adapter now detects that refusal and automatically retries registration with an UNSIGNED manifest (plain permissions), which pairs normally. Trade-off: the signed-only WRITE_SETTINGS permission is lost, so picture/sound mode writes may be refused on such firmware; power, volume, inputs, apps, channels, toasts and remote keys keep working.",
+        "pl": "Poprawka: webOS 26 (oprogramowanie TV 43.x) odrzuca parowanie błędem \"403 Pairing rejected: blacklisted certificate detected\" i nie pokazuje okna na ekranie — LG wciągnęło na czarną listę wspólny certyfikat podpisujący com.lge.test, używany przez lgtv2 i większość integracji (ta sama awaria dotknęła LGTVCompanion). Adapter wykrywa teraz tę odmowę i automatycznie ponawia rejestrację z manifestem NIEPODPISANYM (zwykłe uprawnienia), co paruje się normalnie. Kompromis: tracimy uprawnienie WRITE_SETTINGS dostępne tylko dla podpisanego manifestu, więc zapis trybów obrazu/dźwięku może być odrzucany na takim firmware; zasilanie, głośność, wejścia, aplikacje, kanały, powiadomienia i przyciski pilota działają dalej."
+      },
       "1.2.65": {
         "en": "Diagnostics: log the complete registration error at warn level. After a major webOS upgrade the TV can refuse registration without ever showing the on-screen pairing prompt, and the previous log line only showed an empty payload, which said nothing about why.",
         "pl": "Diagnostyka: pełna treść błędu rejestracji logowana na poziomie warn. Po dużej aktualizacji webOS telewizor potrafi odrzucić rejestrację bez pokazania okna parowania, a dotychczasowy wpis w logu pokazywał tylko pusty payload, co nic nie mówiło o przyczynie."
