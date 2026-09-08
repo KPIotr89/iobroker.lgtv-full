@@ -559,6 +559,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this._reconnCount   = 0;
             this._fastRetryUntil = 0;
             this._warnedIgnore  = false;
+            this._pairingPrompted = false;
             this._set('info.connection', true);
             this._set('power', true);
             this.requestSystemInfo();
@@ -650,7 +651,28 @@ class LgtvFullAdapter extends utils.Adapter {
         });
 
         this.tv.on('prompt', () => {
-            this.log.warn('TV is requesting pairing — please accept on the TV screen!');
+            // The TV is waiting for the user to confirm pairing with the remote.
+            // The 15s connect watchdog would tear the socket down long before a
+            // human can walk over and press Accept — and the retry then shows a
+            // fresh prompt, looping forever. Give the user 2 minutes instead.
+            if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; }
+            if (!this._pairingPrompted) {
+                this._pairingPrompted = true;
+                this.log.warn('TV is requesting pairing — accept the prompt on the TV screen (you have ~2 minutes).');
+            }
+            this._watchdog = setTimeout(() => {
+                if (!this._connecting) return;
+                this._pairingPrompted = false;
+                this.log.warn('Pairing was not confirmed on the TV within 2 minutes — retrying.');
+                this._connecting = false;
+                if (this.tv) {
+                    this.tv._onClose = () => {};
+                    this.tv._onError = () => {};
+                    try { this.tv.disconnect(); } catch (e) { /* ignore */ }
+                }
+                if (this.reconnTimer) clearTimeout(this.reconnTimer);
+                this.reconnTimer = setTimeout(() => this.connect(), 5000);
+            }, 120000);
         });
 
         this.tv.connect();

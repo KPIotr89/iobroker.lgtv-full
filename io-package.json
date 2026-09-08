@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.63",
+    "version": "1.2.64",
     "news": {
+      "1.2.64": {
+        "en": "Fix: pairing could never be completed by hand. A major webOS upgrade (e.g. 24 to 26, TV sw 43.21.73) invalidates the stored client key and the TV asks for pairing again — but the 15s connect watchdog tore the socket down long before anyone could reach the remote and press Accept, so the adapter looped prompt/retry every 15s forever. When the TV requests pairing the watchdog is now extended to 2 minutes and the warning says so; the prompt is logged once per attempt instead of on every retry.",
+        "pl": "Poprawka: parowania nie dało się dokończyć ręcznie. Duża aktualizacja webOS (np. 24 na 26, oprogramowanie TV 43.21.73) unieważnia zapisany klucz i telewizor prosi o ponowne parowanie — ale 15-sekundowy watchdog zrywał połączenie na długo przed tym, zanim ktokolwiek zdążył sięgnąć po pilota i potwierdzić, więc adapter w kółko powtarzał prompt i retry co 15 s. Gdy telewizor prosi o parowanie, watchdog jest teraz wydłużany do 2 minut i ostrzeżenie to komunikuje; prompt logowany raz na próbę zamiast przy każdym powtórzeniu."
+      },
       "1.2.63": {
         "en": "Fix: writing and reading a setting are independent paths. A webOS 4 TV rejects the pictureMode key for READING (500) but accepts WRITING it through the createAlert + Luna mechanism — the same approach homebridge-lgwebos-tv uses for webOS < 8. Setting the picture mode therefore already works on such TVs; only verification was broken, resending the mode four times and logging a false failure. Verify-retry is now skipped for keys the TV does not expose for reading.",
         "pl": "Poprawka: zapis i odczyt ustawienia to niezależne ścieżki. Telewizor z webOS 4 odrzuca klucz pictureMode przy ODCZYCIE (500), ale przyjmuje jego ZAPIS przez mechanizm createAlert + Luna — ten sam, którego homebridge-lgwebos-tv używa dla webOS < 8. Ustawianie trybu obrazu działa więc na takich telewizorach już teraz; zepsuta była tylko weryfikacja, która ponawiała zapis cztery razy i logowała fałszywą porażkę. Verify-retry jest teraz pomijany dla kluczy, których telewizor nie udostępnia do odczytu."
