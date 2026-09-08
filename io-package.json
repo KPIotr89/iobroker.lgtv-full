@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.64",
+    "version": "1.2.65",
     "news": {
+      "1.2.65": {
+        "en": "Diagnostics: log the complete registration error at warn level. After a major webOS upgrade the TV can refuse registration without ever showing the on-screen pairing prompt, and the previous log line only showed an empty payload, which said nothing about why.",
+        "pl": "Diagnostyka: pełna treść błędu rejestracji logowana na poziomie warn. Po dużej aktualizacji webOS telewizor potrafi odrzucić rejestrację bez pokazania okna parowania, a dotychczasowy wpis w logu pokazywał tylko pusty payload, co nic nie mówiło o przyczynie."
+      },
       "1.2.64": {
         "en": "Fix: pairing could never be completed by hand. A major webOS upgrade (e.g. 24 to 26, TV sw 43.21.73) invalidates the stored client key and the TV asks for pairing again — but the 15s connect watchdog tore the socket down long before anyone could reach the remote and press Accept, so the adapter looped prompt/retry every 15s forever. When the TV requests pairing the watchdog is now extended to 2 minutes and the warning says so; the prompt is logged once per attempt instead of on every retry.",
         "pl": "Poprawka: parowania nie dało się dokończyć ręcznie. Duża aktualizacja webOS (np. 24 na 26, oprogramowanie TV 43.21.73) unieważnia zapisany klucz i telewizor prosi o ponowne parowanie — ale 15-sekundowy watchdog zrywał połączenie na długo przed tym, zanim ktokolwiek zdążył sięgnąć po pilota i potwierdzić, więc adapter w kółko powtarzał prompt i retry co 15 s. Gdy telewizor prosi o parowanie, watchdog jest teraz wydłużany do 2 minut i ostrzeżenie to komunikuje; prompt logowany raz na próbę zamiast przy każdym powtórzeniu."

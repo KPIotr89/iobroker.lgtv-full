@@ -87,6 +87,7 @@ class LgTvSocket {
         this._onClose   = () => {};
         this._onError   = () => {};
         this._onPrompt  = () => {};
+        this._onRegisterError = null;
     }
 
     on(event, fn) {
@@ -94,6 +95,7 @@ class LgTvSocket {
         if (event === 'close')   this._onClose   = fn;
         if (event === 'error')   this._onError   = fn;
         if (event === 'prompt')  this._onPrompt  = fn;
+        if (event === 'registerError') this._onRegisterError = fn;
         return this;
     }
 
@@ -145,6 +147,10 @@ class LgTvSocket {
 
             } else if (msg.type === 'error') {
                 if (msg.id === 'register0') {
+                    // Log the COMPLETE message: after a major webOS upgrade the TV
+                    // can refuse registration outright (no on-screen prompt at all),
+                    // and the reason only shows in the raw payload/error fields.
+                    if (this._onRegisterError) this._onRegisterError(JSON.stringify(msg));
                     this._onPrompt();
                 } else {
                     // Handle errors for pending one-shot request callbacks
@@ -648,6 +654,12 @@ class LgtvFullAdapter extends utils.Adapter {
                 // Error on an established connection — always log
                 this.log.warn(`Connection error: ${err && err.message ? err.message : err}`);
             }
+        });
+
+        this.tv.on('registerError', (raw) => {
+            // Visible without debug level — this is the only clue when the TV
+            // refuses registration and shows no pairing prompt at all.
+            this.log.warn(`TV refused registration: ${String(raw).substring(0, 400)}`);
         });
 
         this.tv.on('prompt', () => {
