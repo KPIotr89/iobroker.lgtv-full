@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.67",
+    "version": "1.2.68",
     "news": {
+      "1.2.68": {
+        "en": "Fix: the dialog still blinked because the adapter sent MORE closeAlert calls than the isolated test did. Two extra sources are now suppressed: the anti-stacking pre-close no longer touches an alert already confirmed closed, and the notifications/getStatus auto-dismiss subscription now ignores our own settings alerts (it errored out on webOS 24 so it never fired before; on webOS 26 it works and was racing our own close). Foreign alerts are still auto-dismissed.",
+        "pl": "Poprawka: dialog nadal mrugał, bo adapter wysyłał WIĘCEJ wywołań closeAlert niż izolowany test. Wyciszone zostały dwa dodatkowe źródła: zamykanie poprzedniego alertu (anti-stack) nie dotyka już alertu potwierdzonego jako zamknięty, a subskrypcja auto-dismiss notifications/getStatus ignoruje teraz nasze własne alerty ustawień (na webOS 24 zwracała błąd i nigdy nie działała; na webOS 26 działa i ścigała się z naszym zamknięciem). Obce alerty są nadal automatycznie zamykane."
+      },
       "1.2.67": {
         "en": "Fix: the settings dialog briefly flashed on screen on webOS 26. Side-by-side testing showed the alert parameters were not the cause — a single immediate closeAlert dismisses it with nothing visible, while the previous burst of six calls (immediate plus five timed retries) made it blink, because the extra calls land on an already-closed alert and disturb the notification service. Now one closeAlert is sent, and retries only follow if it failed or went unanswered within 800ms.",
         "pl": "Poprawka: dialog ustawień migał na moment na ekranie na webOS 26. Testy porównawcze pokazały, że parametry alertu nie były przyczyną — pojedynczy natychmiastowy closeAlert zamyka go bez śladu na ekranie, podczas gdy dotychczasowa seria sześciu wywołań (natychmiastowe plus pięć opóźnionych) powodowała mignięcie, bo nadmiarowe wywołania trafiają w już zamknięty alert i zaburzają usługę powiadomień. Teraz wysyłane jest jedno closeAlert, a powtórki tylko gdy zawiedzie lub pozostanie bez odpowiedzi przez 800 ms."

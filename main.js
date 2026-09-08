@@ -1006,8 +1006,16 @@ class LgtvFullAdapter extends utils.Adapter {
         this.tv.subscribe('ssap://system.notifications/getStatus', (err, res) => {
             if (err || !res) return;
             const alertId = res.alertId || (res.alerts && res.alerts[0] && res.alerts[0].alertId);
+            // Skip our OWN settings alerts — _setWithAlert already closes them.
+            // A second, competing closeAlert from here is what made the dialog
+            // blink on webOS 26 (the subscription used to error out on webOS 24,
+            // so this never fired before).
+            if (alertId && this._ownAlerts && this._ownAlerts.has(alertId)) return;
+            // The push can arrive before the createAlert response gives us the id,
+            // so also ignore anything that appears while our own write is in flight.
+            if (Date.now() - (this._alertInFlight || 0) < 3000) return;
             if (alertId) {
-                this.log.debug(`Auto-dismissing alert: ${alertId}`);
+                this.log.debug(`Auto-dismissing foreign alert: ${alertId}`);
                 this.tv.request('ssap://system.notifications/closeAlert', { alertId }, (closeErr) => {
                     this.log.debug(`Auto-dismiss: ${closeErr ? closeErr.message : 'ok'}`);
                 });
@@ -1295,6 +1303,7 @@ class LgtvFullAdapter extends utils.Adapter {
         //   - onclose callback fires the Luna setSystemSettings call
         //   - onClick is belt-and-suspenders if user somehow sees and clicks OK
         //   - timeout:0 = wait indefinitely (do NOT use timeout:1 — dialog stays 1s)
+        this._alertInFlight = Date.now();
         this.tv.request('ssap://system.notifications/createAlert', {
             title:    ' ',
             message:  ' ',
@@ -1327,7 +1336,11 @@ class LgtvFullAdapter extends utils.Adapter {
             // Anti-stack: close any still-open alert from a previous
             // (verify-)retry. Without this, when closeAlert fails to dismiss
             // (see below) every retry leaves another empty "OK" dialog stacked.
-            if (this._lastAlertId && this._lastAlertId !== alertId) {
+            if (this._lastAlertId && this._lastAlertId !== alertId &&
+                !(this._closedAlerts && this._closedAlerts.has(this._lastAlertId))) {
+                // Only if the previous one was never confirmed closed — closing an
+                // already-closed alert disturbs the notification service and makes
+                // the next dialog blink.
                 this._closeAlert(this._lastAlertId);
             }
             this._lastAlertId = alertId;
@@ -1341,6 +1354,9 @@ class LgtvFullAdapter extends utils.Adapter {
             // early close then gets silently ignored and the empty OK dialog
             // lingers). Dense early retries minimise the visible flash.
             this._closedAlerts = this._closedAlerts || new Set();
+            this._ownAlerts = this._ownAlerts || new Set();
+            this._ownAlerts.add(alertId);
+            if (this._ownAlerts.size > 50) this._ownAlerts.clear();
             // ONE closeAlert, fired immediately. Side-by-side testing on webOS 26
             // showed this dismisses the dialog with no visible flash at all, while
             // the previous burst of six calls (immediate + five timed retries) made
