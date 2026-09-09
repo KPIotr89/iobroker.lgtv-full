@@ -93,6 +93,20 @@ Accept it with the remote control. The pairing key is saved automatically and pa
 
 > **Note:** If you see a pairing prompt every restart, delete `lgtvkey.txt` from the instance data directory and let it re-pair once.
 
+**After a major webOS upgrade** (e.g. 24 → 26) the stored key is invalidated and the TV
+asks to pair again. Two things to know:
+
+- The prompt only appears when the request is sent **without** a key. If the TV keeps
+  refusing but shows nothing on screen, delete `lgtvkey.txt` and restart the instance.
+- If the log shows `403 Pairing rejected: blacklisted certificate detected`, the TV has
+  blacklisted the signed manifest. The adapter detects this and automatically retries
+  with an unsigned one — no action needed, but `WRITE_SETTINGS` is then unavailable
+  (see *Model compatibility* below).
+
+**Running more than one TV:** add a second instance and give it its own IP, MAC and —
+importantly — a **different MQTT topic prefix** (e.g. `lgtv2`). Sharing a prefix makes
+both TVs receive each other's commands. Each instance keeps its own pairing key.
+
 ---
 
 ## 📊 States Reference
@@ -448,7 +462,79 @@ discovers the working subset per TV and uses only that — check the log line
 Power, volume, mute, inputs, apps, channels, toast notifications and remote buttons
 work across all supported generations.
 
+## 🔒 Privacy: running the TV without internet access
+
+A September 2026 investigation (Gamers Nexus, covered by The Register, TechRadar and
+Malwarebytes) documented that LG TVs use Automatic Content Recognition to fingerprint
+what is on screen — **including HDMI sources** — log microphone audio in standby, scan
+the local network for nearby devices, and forward telemetry to LG Ad Solutions.
+Collected data is buffered and uploaded once the TV regains internet access.
+
+If the TV is only used as a display for external sources (Apple TV, console, PC), it
+does not need internet at all, and blocking it also **stops firmware and system-app
+updates from silently breaking this integration** — which is what happened repeatedly
+throughout 2026.
+
+**Firewall (example: UniFi):** create a rule blocking the TV **client → Internet**.
+Do not use a generic "block client" toggle — that cuts LAN access too and the adapter
+stops working. LAN traffic must stay open for ioBroker, MQTT, AirPlay and Wake-on-LAN.
+
+Useful details:
+
+- The TV's UI becomes sluggish on screens that query LG servers, because a silent
+  drop makes them wait for a timeout. Allowing **DNS (53)** and **NTP (123)** to the
+  local gateway fixes most of it; using **reject** instead of **drop** helps further.
+- *Settings → Support → Software Update* will hang or stay unavailable. That is the
+  point of the block, not a fault.
+- Blocking stops the upload, not the collection. Also turn off on the TV:
+  **Live Plus** (this is ACR), ad personalisation, voice recognition, and withdraw the
+  optional user agreements.
+
+What keeps working: every HDMI source, AirPlay, this adapter, MQTT, Wake-on-LAN.
+What stops: the TV's own streaming apps, Content Store, voice assistant.
+
 ## 📝 Changelog
+
+### 1.2.69
+- **Fix:** `admin/jsonConfig.json` failed schema validation — `header` items require a `size` property. Admin logged `invalid jsonConfig` on every load
+
+### 1.2.68
+- **Fix:** Dialog still blinked on webOS 26 — the adapter sent more `closeAlert` calls than needed. The anti-stacking pre-close no longer touches an already-closed alert, and the `notifications/getStatus` auto-dismiss subscription now ignores our own alerts (it errored on webOS 24 so it never fired before; on webOS 26 it works and raced our own close)
+
+### 1.2.67
+- **Fix:** Single `closeAlert` instead of a burst of six — the extra calls landed on an already-closed alert and made the dialog flash. Retries only if the first attempt fails or goes unanswered
+
+### 1.2.66
+- **Fix:** webOS 26 rejects pairing with `403 Pairing rejected: blacklisted certificate detected` and shows **no prompt at all** — LG blacklisted the shared `com.lge.test` signing certificate. The adapter now falls back to an **unsigned manifest**, which pairs normally
+- Trade-off: `WRITE_SETTINGS` came only from the signed manifest, so direct `setSystemSettings` returns `401`; settings still apply through the alert mechanism
+
+### 1.2.65
+- Diagnostics: full registration error logged at warn level
+
+### 1.2.64
+- **Fix:** Pairing could not be completed by hand — the 15 s connect watchdog tore the socket down before anyone could press Accept. Extended to 2 minutes while the TV waits for confirmation
+
+### 1.2.63
+- **Fix:** Writing and reading a setting are independent paths — a TV that refuses to *read* `pictureMode` can still *write* it. Verify-retry is skipped for keys the TV does not expose for reading
+
+### 1.2.62
+- **Fix:** Automatic discovery of supported picture keys — one unsupported key makes `getSystemSettings` fail with `500` for the whole request
+
+### 1.2.61
+- Diagnostics: probe which `getSystemSettings` category/key variant the TV accepts
+
+### 1.2.60
+- **Add:** `info.model` and `info.firmware` states, logged on every connect
+
+### 1.2.59
+- **Fix:** An unconfigured instance (empty IP) threw `Invalid URL` on every retry — now logs one clear error and stops
+
+### 1.2.58
+- **Fix:** Blank instance configuration page — `io-package.json` was missing the `adminUI` declaration required by Admin 6+ to render `admin/jsonConfig.json`
+- Completed the MQTT keys in `native` defaults
+
+### 1.2.57
+- Stop repeating `closeAlert` once it has succeeded
 
 ### 1.2.56
 - **Improvement:** Rapid setting writes are coalesced into **one** alert. Home automation sends picture mode and backlight as separate commands milliseconds apart, and every `createAlert` is another chance for the dialog to flash (logs showed 3 alerts in 4 s for a single scene)
