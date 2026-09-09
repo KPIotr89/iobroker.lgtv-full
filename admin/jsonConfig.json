@@ -3,7 +3,8 @@
   "items": {
     "_tvHeader": {
       "type": "header",
-      "text": "TV Connection"
+      "text": "TV Connection",
+      "size": 2
     },
     "host": {
       "type": "text",
@@ -33,7 +34,8 @@
     },
     "_mqttHeader": {
       "type": "header",
-      "text": "MQTT Integration (optional)"
+      "text": "MQTT Integration (optional)",
+      "size": 2
     },
     "mqttEnabled": {
       "type": "checkbox",

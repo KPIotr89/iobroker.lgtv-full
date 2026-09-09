@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.68",
+    "version": "1.2.69",
     "news": {
+      "1.2.69": {
+        "en": "Fix: admin/jsonConfig.json failed schema validation — header items require a \"size\" property, which both headers were missing. Admin logged \"lgtv-full has an invalid jsonConfig\" on every load. The config page still rendered, but a future Admin release may stop tolerating it.",
+        "pl": "Poprawka: admin/jsonConfig.json nie przechodził walidacji schematu — elementy typu header wymagają pola \"size\", którego brakowało w obu nagłówkach. Admin przy każdym ładowaniu logował \"lgtv-full has an invalid jsonConfig\". Strona konfiguracji mimo to się renderowała, ale przyszła wersja Admina może przestać to tolerować."
+      },
       "1.2.68": {
         "en": "Fix: the dialog still blinked because the adapter sent MORE closeAlert calls than the isolated test did. Two extra sources are now suppressed: the anti-stacking pre-close no longer touches an alert already confirmed closed, and the notifications/getStatus auto-dismiss subscription now ignores our own settings alerts (it errored out on webOS 24 so it never fired before; on webOS 26 it works and was racing our own close). Foreign alerts are still auto-dismissed.",
         "pl": "Poprawka: dialog nadal mrugał, bo adapter wysyłał WIĘCEJ wywołań closeAlert niż izolowany test. Wyciszone zostały dwa dodatkowe źródła: zamykanie poprzedniego alertu (anti-stack) nie dotyka już alertu potwierdzonego jako zamknięty, a subskrypcja auto-dismiss notifications/getStatus ignoruje teraz nasze własne alerty ustawień (na webOS 24 zwracała błąd i nigdy nie działała; na webOS 26 działa i ścigała się z naszym zamknięciem). Obce alerty są nadal automatycznie zamykane."
