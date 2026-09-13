@@ -1440,13 +1440,21 @@ class LgtvFullAdapter extends utils.Adapter {
                 // updates have changed this behaviour before — 2026-07-19).
                 this.log.warn(`closeAlert(${alertId}) failed: ${e.message || e} — dialog may stay on screen`);
             } else {
+                // How long was the alert actually open? A flash on screen means
+                // the TV rendered it before our close landed, so the latency is
+                // the thing to watch when the blink is only occasional.
+                const openMs = Date.now() - (this._alertInFlight || Date.now());
+                if (openMs > 200) {
+                    this.log.warn(`Alert stayed open ${openMs}ms before closing — long enough to be visible on screen`);
+                } else {
+                    this.log.debug(`closeAlert(${alertId}): ok after ${openMs}ms`);
+                }
                 // Mark as closed so the scheduled retries below skip themselves
                 if (this._closedAlerts) {
                     this._closedAlerts.add(alertId);
                     // keep the set small — only recent ids matter
                     if (this._closedAlerts.size > 50) this._closedAlerts.clear();
                 }
-                this.log.debug(`closeAlert(${alertId}): ok`);
             }
         });
     }

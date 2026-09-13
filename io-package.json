@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.69",
+    "version": "1.2.70",
     "news": {
+      "1.2.70": {
+        "en": "Diagnostics: measure how long each settings alert stays open. An occasional flash on screen means the TV rendered the dialog before closeAlert landed, so the open time is what matters — it is now logged, with a warning above 200ms. This turns \"it blinks sometimes\" into data showing which writes were slow and why.",
+        "pl": "Diagnostyka: pomiar czasu, przez jaki każdy alert ustawień pozostaje otwarty. Sporadyczne mignięcie oznacza, że telewizor zdążył wyrenderować dialog zanim dotarł closeAlert, więc liczy się właśnie ten czas — jest teraz logowany, z ostrzeżeniem powyżej 200ms. Zamienia to \"czasem mruga\" w dane pokazujące, które zapisy były wolne i dlaczego."
+      },
       "1.2.69": {
         "en": "Fix: admin/jsonConfig.json failed schema validation — header items require a \"size\" property, which both headers were missing. Admin logged \"lgtv-full has an invalid jsonConfig\" on every load. The config page still rendered, but a future Admin release may stop tolerating it.",
         "pl": "Poprawka: admin/jsonConfig.json nie przechodził walidacji schematu — elementy typu header wymagają pola \"size\", którego brakowało w obu nagłówkach. Admin przy każdym ładowaniu logował \"lgtv-full has an invalid jsonConfig\". Strona konfiguracji mimo to się renderowała, ale przyszła wersja Admina może przestać to tolerować."
