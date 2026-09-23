@@ -1198,7 +1198,8 @@ class LgtvFullAdapter extends utils.Adapter {
             // only changes on TV connect/disconnect, so if a subscriber (e.g. the
             // LoxBerry gateway) ever loses the topic between changes, this brings
             // it back within 30s — self-healing without a restart.
-            if (this.mqttHeartbeat) clearInterval(this.mqttHeartbeat);
+            if (this.mqttHeartbeat)   clearInterval(this.mqttHeartbeat);
+            if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
             this.mqttHeartbeat = setInterval(() => {
                 const v = this._cache['info.connection'];
                 this.mqttPublish('info.connection', v === undefined ? this.connected : v);
@@ -1272,11 +1273,28 @@ class LgtvFullAdapter extends utils.Adapter {
             const n = Object.keys(merged).length;
             if (n > 1) this.log.debug(`Coalesced ${n} ${category} settings into one alert: ${JSON.stringify(merged)}`);
             this._flushAlert(category, merged);
-        }, 150);
+        }, 400);
     }
 
     /** Apply one settings batch via the createAlert + Luna callback trick. */
     _flushAlert(category, settings) {
+        // Strictly one alert at a time. Two overlapping alerts made the TV drop
+        // one of the onclose callbacks (2026-09-23: mode + backlight 367ms apart
+        // created two alerts 1ms apart; the first was closed twice and its
+        // pictureMode callback never fired, so the mode silently did not apply).
+        if (this._alertBusy) {
+            this._alertQueue = this._alertQueue || [];
+            const queued = this._alertQueue.find(q => q.category === category);
+            if (queued) Object.assign(queued.settings, settings);
+            else this._alertQueue.push({ category, settings });
+            this.log.debug(`Alert busy — queued ${category} ${JSON.stringify(settings)}`);
+            return;
+        }
+        this._alertBusy = true;
+        // Safety net: never deadlock if the TV stops answering closeAlert
+        if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
+        this._alertBusyTimer = setTimeout(() => this._releaseAlert('timeout'), 2000);
+
         const lunaUri    = 'luna://com.webos.settingsservice/setSystemSettings';
         const lunaParams = { category, settings };
 
@@ -1320,6 +1338,7 @@ class LgtvFullAdapter extends utils.Adapter {
             this.log.debug(`createAlert cb: alertId=${alertId || 'none'} err="${alertErr ? (alertErr.message || alertErr) : 'ok'}"`);
 
             if (!alertId) {
+                this._releaseAlert('createAlert failed');
                 const msg = String((alertErr && (alertErr.message || alertErr)) || 'no alertId');
                 // NO direct-SSAP fallback: ssap://settings/setSystemSettings always
                 // raises the "unknown message OK" dialog on webOS 24. Failing loudly
@@ -1336,14 +1355,8 @@ class LgtvFullAdapter extends utils.Adapter {
             // Anti-stack: close any still-open alert from a previous
             // (verify-)retry. Without this, when closeAlert fails to dismiss
             // (see below) every retry leaves another empty "OK" dialog stacked.
-            if (this._lastAlertId && this._lastAlertId !== alertId &&
-                !(this._closedAlerts && this._closedAlerts.has(this._lastAlertId))) {
-                // Only if the previous one was never confirmed closed — closing an
-                // already-closed alert disturbs the notification service and makes
-                // the next dialog blink.
-                this._closeAlert(this._lastAlertId);
-            }
-            this._lastAlertId = alertId;
+            this._lastAlertId   = alertId;
+            this._currentAlertId = alertId;
 
             // Dismiss the invisible dialog so onclose fires the Luna call.
             // We're inside the createAlert response callback, so the alert
@@ -1420,7 +1433,25 @@ class LgtvFullAdapter extends utils.Adapter {
         }
     }
 
-    /** Close a single alert by id (used for dismissal and anti-stacking). */
+    /**
+     * Free the alert slot and send the next queued settings batch, if any.
+     * Called when our alert is confirmed closed, or from a 2s safety timer so a
+     * TV that stops answering closeAlert cannot wedge the queue permanently.
+     */
+    _releaseAlert(reason) {
+        if (!this._alertBusy) return;
+        this._alertBusy = false;
+        this._currentAlertId = null;
+        if (this._alertBusyTimer) { clearTimeout(this._alertBusyTimer); this._alertBusyTimer = null; }
+        if (reason === 'timeout') this.log.debug('Alert slot released by safety timer (no close confirmation)');
+        const next = this._alertQueue && this._alertQueue.shift();
+        if (next) {
+            this.log.debug(`Sending queued ${next.category} settings`);
+            this._flushAlert(next.category, next.settings);
+        }
+    }
+
+    /** Close a single alert by id. */
     _closeAlert(alertId) {
         // Watchdog: some webOS system-app versions stop answering closeAlert
         // entirely (silence, not an error) — that's what leaves the empty OK
@@ -1449,6 +1480,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 } else {
                     this.log.debug(`closeAlert(${alertId}): ok after ${openMs}ms`);
                 }
+                if (alertId === this._currentAlertId) this._releaseAlert('closed');
                 // Mark as closed so the scheduled retries below skip themselves
                 if (this._closedAlerts) {
                     this._closedAlerts.add(alertId);
@@ -1765,7 +1797,8 @@ class LgtvFullAdapter extends utils.Adapter {
             if (this.pollTimer)     clearInterval(this.pollTimer);
             if (this._flushTimer)   clearTimeout(this._flushTimer);
             if (this._watchdog)     clearTimeout(this._watchdog);
-            if (this.mqttHeartbeat) clearInterval(this.mqttHeartbeat);
+            if (this.mqttHeartbeat)   clearInterval(this.mqttHeartbeat);
+            if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
             for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
             // Clean shutdown: publish false explicitly (the Last Will only fires
