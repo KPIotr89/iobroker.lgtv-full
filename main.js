@@ -1271,6 +1271,18 @@ class LgtvFullAdapter extends utils.Adapter {
             buf.settings = {};
             buf.timer    = null;
             const n = Object.keys(merged).length;
+            // pictureMode must NOT ride along with other picture keys: the TV
+            // applies the batch, then loads the mode's stored profile, which
+            // overwrites whatever backlight/contrast we sent in the same call
+            // (seen: backlight 30 + expert1 -> TV settled back on the mode's 20).
+            // Send the mode alone first; the rest follows once it is applied.
+            if (category === 'picture' && merged.pictureMode !== undefined && n > 1) {
+                const { pictureMode, ...rest } = merged;
+                this.log.debug(`Split: pictureMode first, then ${JSON.stringify(rest)} (per-mode values would be overwritten)`);
+                this._flushAlert(category, { pictureMode });
+                this._flushAlert(category, rest);      // queued — runs after the mode
+                return;
+            }
             if (n > 1) this.log.debug(`Coalesced ${n} ${category} settings into one alert: ${JSON.stringify(merged)}`);
             this._flushAlert(category, merged);
         }, 400);
@@ -1291,6 +1303,7 @@ class LgtvFullAdapter extends utils.Adapter {
             return;
         }
         this._alertBusy = true;
+        this._lastWasModeChange = settings.pictureMode !== undefined;
         // Safety net: never deadlock if the TV stops answering closeAlert
         if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
         this._alertBusyTimer = setTimeout(() => this._releaseAlert('timeout'), 2000);
@@ -1434,6 +1447,25 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     /**
+     * After a picture mode change the TV loads that mode's own stored values.
+     * Anything the automation asked for earlier (e.g. backlight 20) is silently
+     * replaced by the mode's value (e.g. 10) and nobody corrects it — the
+     * automation still believes 20. Compare what the TV reports with what was
+     * last commanded and write back the differences.
+     */
+    _reassertPictureAfterMode() {
+        if (!this._desiredPicture) return;
+        const diff = {};
+        for (const [k, want] of Object.entries(this._desiredPicture)) {
+            const have = this._confirmed[`picture.${k}`];
+            if (have !== undefined && String(have) !== String(want)) diff[k] = want;
+        }
+        if (!Object.keys(diff).length) return;
+        this.log.debug(`Re-asserting after mode change: ${JSON.stringify(diff)} (TV loaded the mode's own values)`);
+        this._setWithAlert('picture', diff, null);
+    }
+
+    /**
      * Free the alert slot and send the next queued settings batch, if any.
      * Called when our alert is confirmed closed, or from a 2s safety timer so a
      * TV that stops answering closeAlert cannot wedge the queue permanently.
@@ -1446,8 +1478,12 @@ class LgtvFullAdapter extends utils.Adapter {
         if (reason === 'timeout') this.log.debug('Alert slot released by safety timer (no close confirmation)');
         const next = this._alertQueue && this._alertQueue.shift();
         if (next) {
-            this.log.debug(`Sending queued ${next.category} settings`);
-            this._flushAlert(next.category, next.settings);
+            const wait = this._lastWasModeChange ? 350 : 0;
+            this.log.debug(`Sending queued ${next.category} settings${wait ? ` after ${wait}ms (mode profile settling)` : ''}`);
+            setTimeout(() => this._flushAlert(next.category, next.settings), wait);
+        } else if (this._lastWasModeChange) {
+            // Nothing queued — but the mode change may have reset per-mode values
+            setTimeout(() => this._reassertPictureAfterMode(), 600);
         }
     }
 
@@ -1702,6 +1738,8 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
                 const rounded = Math.round(val);
+                this._desiredPicture = this._desiredPicture || {};
+                this._desiredPicture[k] = String(rounded);
                 this._setPictureSetting({ [k]: String(rounded) },
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
