@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.72",
+    "version": "1.2.73",
     "news": {
+      "1.2.73": {
+        "en": "Fix (regression in 1.2.72): the re-assert after a mode change kept ONE global \"last commanded\" value per key, ignoring which mode it belonged to. A backlight commanded for one mode was then written into every other mode — e.g. 100 leaked into filmMaker, which is fixed at 20 — the exact cross-mode contamination the feature was meant to prevent. Commanded values are now remembered per picture mode, and after a mode change only values commanded FOR THAT MODE are re-asserted. If nothing was ever commanded for the mode being entered, the TV own stored values are left untouched.",
+        "pl": "Poprawka (regresja z 1.2.72): przywracanie wartości po zmianie trybu trzymało JEDNĄ globalną wartość \"ostatnio zleconą\" na klucz, bez związku z trybem, którego dotyczyła. Jasność zlecona dla jednego trybu była wpisywana do każdego innego — np. 100 przeciekało do filmMaker, który ma na sztywno 20 — czyli dokładnie to przenoszenie wartości między trybami, któremu funkcja miała zapobiegać. Zlecone wartości są teraz pamiętane per tryb obrazu, a po zmianie trybu przywracane są wyłącznie te zlecone DLA TEGO TRYBU. Jeśli dla wchodzącego trybu nic nigdy nie zlecono, wartości zapisane w telewizorze zostają nietknięte."
+      },
       "1.2.72": {
         "en": "Fix: backlight ended up wrong after a mode change (regression from 1.2.71 plus a long-standing gap). Backlight/contrast/etc. are stored PER picture mode, so (a) coalescing pictureMode together with those keys into one call was useless — the TV applied the batch and then loaded the mode profile, overwriting them; the mode is now always sent alone and first, with the rest following ~350ms later; (b) when only the mode was sent, the TV silently loaded that mode stored values while the automation still believed its own — the adapter now compares the TV reported values with the last commanded ones after every mode change and writes back the differences.",
         "pl": "Poprawka: podświetlenie kończyło ze złą wartością po zmianie trybu (regresja z 1.2.71 plus dawna luka). Podświetlenie/kontrast itd. są zapisywane PER tryb obrazu, więc (a) łączenie pictureMode z tymi kluczami w jedno wywołanie było bezcelowe — telewizor stosował paczkę, po czym ładował profil trybu i je nadpisywał; tryb jest teraz zawsze wysyłany sam i jako pierwszy, reszta ~350ms później; (b) gdy wysyłany był sam tryb, telewizor po cichu ładował zapisane w nim wartości, podczas gdy automatyka nadal wierzyła we własne — adapter porównuje teraz wartości zgłaszane przez TV z ostatnio zleconymi po każdej zmianie trybu i dopisuje różnice."

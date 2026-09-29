@@ -1454,14 +1454,18 @@ class LgtvFullAdapter extends utils.Adapter {
      * last commanded and write back the differences.
      */
     _reassertPictureAfterMode() {
-        if (!this._desiredPicture) return;
+        const mode = this._targetMode || this._confirmed['picture.mode'];
+        const want = mode && this._desiredByMode && this._desiredByMode[mode];
+        // Nothing was ever commanded for THIS mode — the TV's own stored values
+        // are the right answer, so leave them alone.
+        if (!want) return;
         const diff = {};
-        for (const [k, want] of Object.entries(this._desiredPicture)) {
+        for (const [k, v] of Object.entries(want)) {
             const have = this._confirmed[`picture.${k}`];
-            if (have !== undefined && String(have) !== String(want)) diff[k] = want;
+            if (have !== undefined && String(have) !== String(v)) diff[k] = v;
         }
         if (!Object.keys(diff).length) return;
-        this.log.debug(`Re-asserting after mode change: ${JSON.stringify(diff)} (TV loaded the mode's own values)`);
+        this.log.debug(`Re-asserting for mode "${mode}": ${JSON.stringify(diff)}`);
         this._setWithAlert('picture', diff, null);
     }
 
@@ -1707,6 +1711,7 @@ class LgtvFullAdapter extends utils.Adapter {
             }
             case 'picture.mode': {
                 if (this._modeFlapBlocked()) { this.setStateAsync(id, val, true); break; }
+                this._targetMode = val;
                 this._setPictureSetting({ pictureMode: val }, (err) => {
                     if (err) this.log.warn(`picture mode write error: ${err.message}`);
                 });
@@ -1721,6 +1726,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 const picKey = PICTURE_MODE_KEYS[val - 1];
                 if (picKey) {
                     if (this._modeFlapBlocked()) { this.setStateAsync(id, val, true); break; }
+                    this._targetMode = picKey;
                     this._setPictureSetting({ pictureMode: picKey }, (err) => {
                         if (err) this.log.warn(`picture modeNum write error: ${err.message}`);
                     });
@@ -1738,8 +1744,16 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.sharpness': {
                 const k = key.split('.')[1];
                 const rounded = Math.round(val);
-                this._desiredPicture = this._desiredPicture || {};
-                this._desiredPicture[k] = String(rounded);
+                // Per-mode memory: backlight/contrast/... are stored PER picture
+                // mode on the TV, so a value commanded for one mode must never be
+                // re-applied in another (1.2.72 kept one global value and leaked
+                // e.g. 100 from another mode into filmMaker, which is fixed at 20).
+                const forMode = this._targetMode || this._confirmed['picture.mode'];
+                if (forMode) {
+                    this._desiredByMode = this._desiredByMode || {};
+                    this._desiredByMode[forMode] = this._desiredByMode[forMode] || {};
+                    this._desiredByMode[forMode][k] = String(rounded);
+                }
                 this._setPictureSetting({ [k]: String(rounded) },
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
