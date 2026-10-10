@@ -1303,6 +1303,7 @@ class LgtvFullAdapter extends utils.Adapter {
             return;
         }
         this._alertBusy = true;
+        this._inFlight = { category, settings: { ...settings } };
         this._lastWasModeChange = settings.pictureMode !== undefined;
         // Safety net: never deadlock if the TV stops answering closeAlert
         if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
@@ -1470,6 +1471,25 @@ class LgtvFullAdapter extends utils.Adapter {
     }
 
     /**
+     * True if a write for this state key with a DIFFERENT value is still pending
+     * anywhere on its way to the TV (coalescing buffer, alert queue, or the alert
+     * currently in flight). Dedup must not skip a command in that case.
+     */
+    _pendingDiffers(key, val) {
+        let category, k;
+        if (key === 'picture.mode')            { category = 'picture'; k = 'pictureMode'; }
+        else if (key.startsWith('picture.'))   { category = 'picture'; k = key.split('.')[1]; }
+        else if (key === 'audio.soundMode')    { category = 'sound';   k = 'soundMode'; }
+        else return false;
+        const differs = (settings) => settings && settings[k] !== undefined && String(settings[k]) !== String(val);
+        const buf = this._alertBuf && this._alertBuf[category];
+        if (buf && differs(buf.settings)) return true;
+        if (this._alertQueue && this._alertQueue.some(q => q.category === category && differs(q.settings))) return true;
+        if (this._inFlight && this._inFlight.category === category && differs(this._inFlight.settings)) return true;
+        return false;
+    }
+
+    /**
      * Free the alert slot and send the next queued settings batch, if any.
      * Called when our alert is confirmed closed, or from a 2s safety timer so a
      * TV that stops answering closeAlert cannot wedge the queue permanently.
@@ -1478,6 +1498,7 @@ class LgtvFullAdapter extends utils.Adapter {
         if (!this._alertBusy) return;
         this._alertBusy = false;
         this._currentAlertId = null;
+        this._inFlight = null;
         if (this._alertBusyTimer) { clearTimeout(this._alertBusyTimer); this._alertBusyTimer = null; }
         if (reason === 'timeout') this.log.debug('Alert slot released by safety timer (no close confirmation)');
         const next = this._alertQueue && this._alertQueue.shift();
@@ -1589,7 +1610,16 @@ class LgtvFullAdapter extends utils.Adapter {
         // that repeatedly publish the same state every ~60 seconds.
         // power / info.* / remote.* / notify are always processed
         // (notify must bypass dedup — same doorbell text twice = two toasts).
-        if (!key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote') && key !== 'notify') {
+        // Last command wins: if a DIFFERENT value for this key is still waiting in
+        // the coalescing buffer, the queue or the alert in flight, this command
+        // must go through even if the TV currently shows the same value —
+        // otherwise the stale pending write lands last (2026-10-10: Loxone sent
+        // 100, 20, 100; the final 100 was skipped because the TV showed 100,
+        // and the queued 20 was applied after it).
+        const pendingDiffers = this._pendingDiffers(key, val);
+        if (pendingDiffers) this.log.debug(`Command: ${key} = ${val} — overrides a pending different write, dedup bypassed`);
+
+        if (!pendingDiffers && !key.startsWith('power') && !key.startsWith('info') && !key.startsWith('remote') && key !== 'notify') {
             const now = Date.now();
 
             // Layer 1: TV already confirmed this value — definitive no-op
@@ -1611,6 +1641,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
             this._cmdSent[key] = { val, ts: now };
         }
+        if (pendingDiffers) this._cmdSent[key] = { val, ts: Date.now() };
 
         this.log.debug(`Command: ${key} = ${val}`);
 

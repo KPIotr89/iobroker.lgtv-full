@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.73",
+    "version": "1.2.74",
     "news": {
+      "1.2.74": {
+        "en": "Fix: last command wins. Deduplication compared a new command only with the TV current value and ignored writes still pending in the coalescing buffer, the alert queue or the alert in flight. With commands 100, 20, 100 arriving within 700ms, the final 100 was skipped (\"TV already at this value\") while the queued 20 was applied after it, leaving the TV on a stale value. Dedup is now bypassed whenever a different value for the same key is pending, so the newest command always ends up applied.",
+        "pl": "Poprawka: ostatnia komenda wygrywa. Deduplikacja porównywała nową komendę tylko z aktualną wartością w telewizorze i nie widziała zapisów czekających w buforze łączenia, w kolejce alertów ani w alercie w drodze. Przy komendach 100, 20, 100 w ciągu 700ms ostatnie 100 było pomijane (\"TV already at this value\"), a oczekujące 20 wchodziło po nim, zostawiając telewizor na nieaktualnej wartości. Deduplikacja jest teraz pomijana, gdy dla tego samego klucza oczekuje inna wartość, więc zawsze stosowana jest najnowsza komenda."
+      },
       "1.2.73": {
         "en": "Fix (regression in 1.2.72): the re-assert after a mode change kept ONE global \"last commanded\" value per key, ignoring which mode it belonged to. A backlight commanded for one mode was then written into every other mode — e.g. 100 leaked into filmMaker, which is fixed at 20 — the exact cross-mode contamination the feature was meant to prevent. Commanded values are now remembered per picture mode, and after a mode change only values commanded FOR THAT MODE are re-asserted. If nothing was ever commanded for the mode being entered, the TV own stored values are left untouched.",
         "pl": "Poprawka (regresja z 1.2.72): przywracanie wartości po zmianie trybu trzymało JEDNĄ globalną wartość \"ostatnio zleconą\" na klucz, bez związku z trybem, którego dotyczyła. Jasność zlecona dla jednego trybu była wpisywana do każdego innego — np. 100 przeciekało do filmMaker, który ma na sztywno 20 — czyli dokładnie to przenoszenie wartości między trybami, któremu funkcja miała zapobiegać. Zlecone wartości są teraz pamiętane per tryb obrazu, a po zmianie trybu przywracane są wyłącznie te zlecone DLA TEGO TRYBU. Jeśli dla wchodzącego trybu nic nigdy nie zlecono, wartości zapisane w telewizorze zostają nietknięte."
