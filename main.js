@@ -636,6 +636,11 @@ class LgtvFullAdapter extends utils.Adapter {
             this._confirmed  = {};
             this._cache      = {};
             this._cmdSent    = {};
+            // Commanded per-mode values are only valid for this session — after
+            // a reconnect the automation sends fresh ones (and yesterday's value
+            // for e.g. a light-dependent backlight must never be re-applied).
+            this._desiredByMode = {};
+            if (this._reloadTimer) { clearTimeout(this._reloadTimer); this._reloadTimer = null; }
             if (this.wasConnected) {
                 // Had a real connection — TV turned off or network dropped
                 this.log.info('Disconnected from LG TV');
@@ -1053,6 +1058,7 @@ class LgtvFullAdapter extends utils.Adapter {
             if (err || !res || !res.settings) return;
             const s = res.settings;
             this.log.debug(`Picture push: ${JSON.stringify(s)}`);
+            this._classifyPicturePush(s);
             if (s.pictureMode !== undefined) {
                 this._setConfirmed('picture.mode', s.pictureMode);
                 const n = PICTURE_MODE_NUM[s.pictureMode];
@@ -1470,6 +1476,95 @@ class LgtvFullAdapter extends utils.Adapter {
         this._setWithAlert('picture', diff, null);
     }
 
+    /** True while one of our own picture writes is buffered, queued or on screen. */
+    _pictureWriteActive() {
+        if (this._alertBusy) return true;
+        if (this._alertBuf && this._alertBuf.picture && this._alertBuf.picture.timer) return true;
+        if (this._alertQueue && this._alertQueue.some(q => q.category === 'picture')) return true;
+        return !!(this._alertInFlight && Date.now() - this._alertInFlight < 2500);
+    }
+
+    /**
+     * Classify a picture push that we did NOT cause.
+     *
+     * LG stores picture values per mode AND per input. Switching HDMI inputs,
+     * an HDR/SDR change or Apple TV's frame-rate match make the TV reload the
+     * whole profile on its own — sometimes seconds after our write (seen:
+     * backlight 40 applied, 7.5s later the TV reloaded expert1 with 20 and the
+     * automation never noticed). Such a reload arrives as a FULL push
+     * (pictureMode + values) with the mode UNCHANGED.
+     *
+     *  - full push, same mode   → profile reload: re-apply what was commanded
+     *                             for this mode (debounced, after the TV settles)
+     *  - full push, other mode  → someone changed the mode (remote) — leave it,
+     *                             the automation reacts to the mode change itself
+     *  - partial push, outside our writes → manual change on the remote: adopt
+     *                             it as the wanted value so a later reload does
+     *                             not undo the user's choice
+     */
+    _classifyPicturePush(s) {
+        const prevMode = this._confirmed['picture.mode'];
+        const hasMode  = s.pictureMode !== undefined;
+        const valueKeys = Object.keys(s).filter(k => k !== 'pictureMode');
+        if (!valueKeys.length || !prevMode) return;   // first push after connect / mode-only
+
+        if (hasMode) {
+            if (s.pictureMode !== prevMode) return;   // real mode change
+            if (this._reloadTimer) clearTimeout(this._reloadTimer);
+            this._reloadTimer = setTimeout(() => this._reassertAfterReload(0), 1500);
+            return;
+        }
+
+        // Partial push — a manual change unless it is the echo of our write
+        if (this._pictureWriteActive()) return;
+        const want = this._desiredByMode && this._desiredByMode[prevMode];
+        if (!want) return;
+        for (let k of valueKeys) {
+            const v = s[k];
+            if (k === 'oledLight') k = 'backlight';
+            if (want[k] !== undefined && String(want[k]) !== String(parseInt(v))) {
+                this.log.info(`Picture ${k} changed on the TV to ${v} (mode "${prevMode}") — kept as the wanted value`);
+                want[k] = String(parseInt(v));
+            }
+        }
+    }
+
+    /** Runs ~1.5s after the last unsolicited profile reload push. */
+    _reassertAfterReload(attempt) {
+        this._reloadTimer = null;
+        if (!this.tv || !this.wasConnected) return;
+        // Our own write in progress — its confirmation will settle _confirmed
+        // first; look again shortly instead of comparing against stale values.
+        if (this._pictureWriteActive()) {
+            if (attempt < 5) this._reloadTimer = setTimeout(() => this._reassertAfterReload(attempt + 1), 1000);
+            return;
+        }
+        const mode = this._confirmed['picture.mode'];
+        const want = mode && this._desiredByMode && this._desiredByMode[mode];
+        if (!want) return;   // nothing commanded for this mode in this session
+        const diff = {};
+        for (const [k, v] of Object.entries(want)) {
+            const have = this._confirmed[`picture.${k}`];
+            if (have !== undefined && String(have) !== String(v)) diff[k] = v;
+        }
+        if (!Object.keys(diff).length) return;
+        // Loop guard: a TV that keeps reloading must not be fought endlessly
+        const now = Date.now();
+        this._reloadFixes = this._reloadFixes || {};
+        const fixes = (this._reloadFixes[mode] || []).filter(t => now - t < 60000);
+        this._reloadFixes[mode] = fixes;
+        if (fixes.length >= 4) {
+            if (!this._reloadWarned || now - this._reloadWarned > 60000) {
+                this._reloadWarned = now;
+                this.log.warn(`TV keeps reloading the "${mode}" profile — stopped re-applying ${JSON.stringify(diff)} for a minute`);
+            }
+            return;
+        }
+        fixes.push(now);
+        this.log.info(`TV reloaded the "${mode}" profile on its own (input/signal change) — re-applying ${JSON.stringify(diff)}`);
+        this._setWithAlert('picture', diff, null);
+    }
+
     /**
      * True if a write for this state key with a DIFFERENT value is still pending
      * anywhere on its way to the TV (coalescing buffer, alert queue, or the alert
@@ -1882,6 +1977,7 @@ class LgtvFullAdapter extends utils.Adapter {
             if (this._watchdog)     clearTimeout(this._watchdog);
             if (this.mqttHeartbeat)   clearInterval(this.mqttHeartbeat);
             if (this._alertBusyTimer) clearTimeout(this._alertBusyTimer);
+            if (this._reloadTimer)    clearTimeout(this._reloadTimer);
             for (const t of Object.values(this._verifyTimers)) clearTimeout(t);
             if (this.tv)          this.tv.disconnect();
             // Clean shutdown: publish false explicitly (the Last Will only fires

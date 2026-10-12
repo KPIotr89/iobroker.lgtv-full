@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "lgtv-full",
-    "version": "1.2.74",
+    "version": "1.2.75",
     "news": {
+      "1.2.75": {
+        "en": "Fix: TV-initiated profile reloads. LG stores picture values per mode AND per input; switching HDMI inputs, HDR/SDR changes or a source's frame-rate match make the TV reload the whole profile on its own, sometimes seconds after a write (seen: backlight 40 applied, 7.5s later expert1 reloaded with 20). A full picture push with an unchanged mode is now treated as such a reload: 1.5s after it settles, values commanded for that mode in the current session are re-applied (max 3 times per minute). Manual changes on the remote are adopted as the wanted value and are not overridden. Commanded values are forgotten on disconnect, so nothing from a previous session is ever re-applied.",
+        "pl": "Poprawka: przeładowanie profilu przez telewizor. LG zapisuje ustawienia obrazu per tryb ORAZ per wejście; zmiana wejścia HDMI, przejście HDR/SDR albo dopasowanie klatkażu źródła powodują, że TV sam wczytuje cały profil, czasem kilka sekund po zapisie (zaobserwowane: jasność 40 ustawiona, 7,5 s później expert1 wczytany z 20). Pełny push obrazu bez zmiany trybu jest teraz traktowany jako takie przeładowanie: 1,5 s po jego ustaniu wartości zlecone dla tego trybu w bieżącej sesji są przywracane (maks. 3 razy na minutę). Ręczna zmiana pilotem jest przyjmowana jako nowa wartość docelowa i nie jest nadpisywana. Zlecone wartości są zapominane po rozłączeniu, więc nic z poprzedniej sesji nie jest przywracane."
+      },
       "1.2.74": {
         "en": "Fix: last command wins. Deduplication compared a new command only with the TV current value and ignored writes still pending in the coalescing buffer, the alert queue or the alert in flight. With commands 100, 20, 100 arriving within 700ms, the final 100 was skipped (\"TV already at this value\") while the queued 20 was applied after it, leaving the TV on a stale value. Dedup is now bypassed whenever a different value for the same key is pending, so the newest command always ends up applied.",
         "pl": "Poprawka: ostatnia komenda wygrywa. Deduplikacja porównywała nową komendę tylko z aktualną wartością w telewizorze i nie widziała zapisów czekających w buforze łączenia, w kolejce alertów ani w alercie w drodze. Przy komendach 100, 20, 100 w ciągu 700ms ostatnie 100 było pomijane (\"TV already at this value\"), a oczekujące 20 wchodziło po nim, zostawiając telewizor na nieaktualnej wartości. Deduplikacja jest teraz pomijana, gdy dla tego samego klucza oczekuje inna wartość, więc zawsze stosowana jest najnowsza komenda."
