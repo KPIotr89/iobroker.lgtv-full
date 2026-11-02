@@ -344,6 +344,15 @@ const PICTURE_MODES_NUM  = Object.fromEntries(PICTURE_MODE_KEYS.map((k, i)  => [
 const SOUND_MODES_NUM    = Object.fromEntries(SOUND_MODE_KEYS.map((k, i)    => [i + 1, `${i + 1} — ${SOUND_MODES[k]}`]));
 const SOUND_OUTPUTS_NUM  = Object.fromEntries(SOUND_OUTPUT_KEYS.map((k, i)  => [i + 1, `${i + 1} — ${SOUND_OUTPUTS[k]}`]));
 
+// Per-mode picture values (stored by the TV separately for every picture mode)
+const PICTURE_VALUE_KEYS = ['picture.brightness', 'picture.contrast', 'picture.backlight', 'picture.color', 'picture.sharpness'];
+// Placeholder mode for values commanded before the TV reported its mode
+// (right after connecting) — bound to the first confirmed mode.
+const PENDING_MODE  = '__pending__';
+// After power-on the TV keeps loading its stored profile for a few seconds.
+// Changes it reports in this window are the TV's doing, not the user's.
+const BOOT_GUARD_MS = 20000;
+
 const REMOTE_BUTTONS = [
     'LEFT', 'RIGHT', 'UP', 'DOWN', 'OK',
     'HOME', 'BACK', 'MENU', 'EXIT', 'INFO', 'GUIDE', 'MYAPPS',
@@ -427,7 +436,43 @@ class LgtvFullAdapter extends utils.Adapter {
      */
     _setConfirmed(id, val) {
         this._confirmed[id] = val;
+        if (id === 'picture.mode') this._onModeConfirmed(val);
         this._set(id, val);
+    }
+
+    /**
+     * The TV reported its picture mode.
+     *  - _targetMode is only meaningful while our own mode write is on its way.
+     *    It used to live forever, so after a TV-side mode change (remote,
+     *    input/HDR switch) or a reconnect, later values were filed under the
+     *    stale mode and never re-applied for the real one.
+     *  - Values commanded before the mode was known are bound to it now.
+     */
+    _onModeConfirmed(mode) {
+        if (this._targetMode === mode || !this._pictureWriteActive()) this._targetMode = null;
+        const pend = this._desiredByMode && this._desiredByMode[PENDING_MODE];
+        if (pend) {
+            delete this._desiredByMode[PENDING_MODE];
+            const target = this._desiredByMode[mode] = this._desiredByMode[mode] || {};
+            for (const [k, v] of Object.entries(pend)) if (target[k] === undefined) target[k] = v;
+            this.log.debug(`Bound early picture values ${JSON.stringify(pend)} to mode "${mode}"`);
+        }
+    }
+
+    /**
+     * Remember a commanded per-mode picture value — also when the command is
+     * skipped because the TV already shows it. Otherwise "TV already at 20"
+     * left nothing to restore when the TV reloaded its stored 100 a moment
+     * later (2026-11-02, power-on).
+     */
+    _rememberDesired(key, val) {
+        if (!PICTURE_VALUE_KEYS.includes(key)) return;
+        const n = Math.round(Number(val));
+        if (!Number.isFinite(n)) return;
+        const forMode = this._targetMode || this._confirmed['picture.mode'] || PENDING_MODE;
+        this._desiredByMode = this._desiredByMode || {};
+        const want = this._desiredByMode[forMode] = this._desiredByMode[forMode] || {};
+        want[key.split('.')[1]] = String(n);
     }
 
     /**
@@ -640,6 +685,7 @@ class LgtvFullAdapter extends utils.Adapter {
             // a reconnect the automation sends fresh ones (and yesterday's value
             // for e.g. a light-dependent backlight must never be re-applied).
             this._desiredByMode = {};
+            this._targetMode    = null;
             if (this._reloadTimer) { clearTimeout(this._reloadTimer); this._reloadTimer = null; }
             if (this.wasConnected) {
                 // Had a real connection — TV turned off or network dropped
@@ -1510,13 +1556,22 @@ class LgtvFullAdapter extends utils.Adapter {
 
         if (hasMode) {
             if (s.pictureMode !== prevMode) return;   // real mode change
-            if (this._reloadTimer) clearTimeout(this._reloadTimer);
-            this._reloadTimer = setTimeout(() => this._reassertAfterReload(0), 1500);
+            this._scheduleReassert();
             return;
         }
 
-        // Partial push — a manual change unless it is the echo of our write
-        if (this._pictureWriteActive()) return;
+        // Partial push during our own write or right after power-on.
+        // Usually the echo of our write — but a waking TV loads its stored
+        // profile in the very same window (2026-11-02: backlight 20 applied at
+        // power-on, the TV went back to its stored 100 and the push was taken
+        // for our echo). Never adopt it as a manual change here: re-check once
+        // the write has settled — a genuine echo then shows no difference.
+        if (this._pictureWriteActive() || Date.now() - this._connectedAt < BOOT_GUARD_MS) {
+            if (this._pushDiffersFromWanted(prevMode, s)) this._scheduleReassert();
+            return;
+        }
+
+        // Partial push outside our writes — a manual change on the remote
         const want = this._desiredByMode && this._desiredByMode[prevMode];
         if (!want) return;
         for (let k of valueKeys) {
@@ -1527,6 +1582,24 @@ class LgtvFullAdapter extends utils.Adapter {
                 want[k] = String(parseInt(v));
             }
         }
+    }
+
+    /** True if a push reports a value different from what was commanded for this mode. */
+    _pushDiffersFromWanted(mode, s) {
+        const want = this._desiredByMode && this._desiredByMode[mode];
+        if (!want) return false;
+        for (let [k, v] of Object.entries(s)) {
+            if (k === 'pictureMode') continue;
+            if (k === 'oledLight') k = 'backlight';
+            if (want[k] !== undefined && String(want[k]) !== String(parseInt(v))) return true;
+        }
+        return false;
+    }
+
+    /** Debounced comparison of the TV's values against the commanded ones. */
+    _scheduleReassert() {
+        if (this._reloadTimer) clearTimeout(this._reloadTimer);
+        this._reloadTimer = setTimeout(() => this._reassertAfterReload(0), 1500);
     }
 
     /** Runs ~1.5s after the last unsolicited profile reload push. */
@@ -1561,7 +1634,7 @@ class LgtvFullAdapter extends utils.Adapter {
             return;
         }
         fixes.push(now);
-        this.log.info(`TV reloaded the "${mode}" profile on its own (input/signal change) — re-applying ${JSON.stringify(diff)}`);
+        this.log.info(`TV reloaded the "${mode}" profile on its own (power-on/input/signal change) — re-applying ${JSON.stringify(diff)}`);
         this._setWithAlert('picture', diff, null);
     }
 
@@ -1720,6 +1793,7 @@ class LgtvFullAdapter extends utils.Adapter {
             // Layer 1: TV already confirmed this value — definitive no-op
             if (this._cache[key] !== undefined && this._cache[key] == val) {
                 this.log.debug(`Command: ${key} = ${val} (skip — TV already at this value)`);
+                if (this.connected) this._rememberDesired(key, val);
                 this.setStateAsync(id, val, true);
                 return;
             }
@@ -1730,6 +1804,7 @@ class LgtvFullAdapter extends utils.Adapter {
             const last = this._cmdSent[key];
             if (last && last.val == val && now - last.ts < 55000) {
                 this.log.debug(`Command: ${key} = ${val} (skip — sent ${Math.round((now - last.ts) / 1000)}s ago)`);
+                if (this.connected) this._rememberDesired(key, val);
                 this.setStateAsync(id, val, true);
                 return;
             }
@@ -1874,12 +1949,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 // mode on the TV, so a value commanded for one mode must never be
                 // re-applied in another (1.2.72 kept one global value and leaked
                 // e.g. 100 from another mode into filmMaker, which is fixed at 20).
-                const forMode = this._targetMode || this._confirmed['picture.mode'];
-                if (forMode) {
-                    this._desiredByMode = this._desiredByMode || {};
-                    this._desiredByMode[forMode] = this._desiredByMode[forMode] || {};
-                    this._desiredByMode[forMode][k] = String(rounded);
-                }
+                this._rememberDesired(key, rounded);
                 this._setPictureSetting({ [k]: String(rounded) },
                     (err) => { if (err) this.log.warn(`${k} write error: ${err.message}`); }
                 );
