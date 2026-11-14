@@ -362,6 +362,8 @@ const TARGET_MODE_TTL_MS = 15000;
 const MODE_SETTLE_MS = 6000;
 // Every picture value command is checked against the TV this long after it
 const CHECK_AFTER_CMD_MS = 3000;
+// After a mode change, give the automation this long to send its value for the new mode
+const MODE_FOLLOW_MS = 2500;
 // Pause after 4 corrections in a minute failed to hold (never fight the TV endlessly)
 const GIVE_UP_MS = 600000;
 
@@ -500,7 +502,25 @@ class LgtvFullAdapter extends utils.Adapter {
         const fresh = rec && rec.mode === forMode && Date.now() - rec.ts < RECENT_CMD_MS;
         this._recentValueCmds[k] = { val: String(n), ts: Date.now(), mode: forMode, prev: fresh ? rec.prev : want[k] };
         want[k] = String(n);
+        (this._wanted = this._wanted || {})[k] = String(n);
         if (this._gaveUp) delete this._gaveUp[forMode];   // a new command deserves a fresh try
+    }
+
+    /**
+     * The values the automation wants, whatever the picture mode.
+     *
+     * The TV stores backlight etc. per mode, but the automation does not think
+     * that way: Loxone holds ONE backlight value and sends it only when it
+     * changes. Going from one mode to another that both map to 100 sends
+     * nothing at all, and the TV then shows whatever it has stored for the new
+     * mode (2026-11-14: DV Cinema Bright → DV Cinema, mode command only, the
+     * TV loaded its stored 20). So the last commanded value is the wanted one
+     * in every mode. (1.2.72 tried this and leaked 100 into filmMaker because
+     * a skipped "20" command was not remembered — it is since 1.2.76.)
+     */
+    _wantFor(_mode) {
+        const w = this._wanted;
+        return w && Object.keys(w).length ? w : null;
     }
 
     /** The commanded mode, while the TV has not confirmed it yet (bounded in time). */
@@ -763,6 +783,7 @@ class LgtvFullAdapter extends utils.Adapter {
             // a reconnect the automation sends fresh ones (and yesterday's value
             // for e.g. a light-dependent backlight must never be re-applied).
             this._desiredByMode = {};
+            this._wanted = {};
             this._recentValueCmds = {};
             this._gaveUp = {};
             this._reloadFixes = {};
@@ -1594,19 +1615,9 @@ class LgtvFullAdapter extends utils.Adapter {
      * last commanded and write back the differences.
      */
     _reassertPictureAfterMode() {
-        const mode = this._activeTargetMode() || this._confirmed['picture.mode'];
-        const want = mode && this._desiredByMode && this._desiredByMode[mode];
-        // Nothing was ever commanded for THIS mode — the TV's own stored values
-        // are the right answer, so leave them alone.
-        if (!want) return;
-        const diff = {};
-        for (const [k, v] of Object.entries(want)) {
-            const have = this._confirmed[`picture.${k}`];
-            if (have !== undefined && String(have) !== String(v)) diff[k] = v;
-        }
-        if (!Object.keys(diff).length) return;
-        this.log.debug(`Re-asserting for mode "${mode}": ${JSON.stringify(diff)}`);
-        this._setWithAlert('picture', diff, null);
+        // The watchdog does the comparison (fresh read, loop guard) — after a
+        // pause, so a value the automation sends for the new mode wins.
+        this._scheduleReassert(MODE_FOLLOW_MS);
     }
 
     /** True while one of our own picture writes is buffered, queued or on screen. */
@@ -1645,7 +1656,7 @@ class LgtvFullAdapter extends utils.Adapter {
             // Mode change (ours, the remote's or the TV's own on a signal
             // change): the TV shows that mode's stored profile now. If values
             // were commanded for it, the watchdog puts them back.
-            if (s.pictureMode !== prevMode) { this._scheduleReassert(); return; }
+            if (s.pictureMode !== prevMode) { this._scheduleReassert(MODE_FOLLOW_MS); return; }
             this._scheduleReassert();
             return;
         }
@@ -1663,19 +1674,20 @@ class LgtvFullAdapter extends utils.Adapter {
         // then shows no difference.
         const profileLoad = valueKeys.length > 1 || Date.now() - (this._modeChangedAt || 0) < MODE_SETTLE_MS;
         if (profileLoad || this._pictureWriteActive() || Date.now() - this._connectedAt < BOOT_GUARD_MS) {
-            if (this._pushDiffersFromWanted(prevMode, s)) this._scheduleReassert();
+            const sinceMode = Date.now() - (this._modeChangedAt || 0);
+            if (this._pushDiffersFromWanted(prevMode, s)) this._scheduleReassert(Math.max(1500, MODE_FOLLOW_MS - sinceMode));
             return;
         }
 
         // Single-value push outside our writes — a manual change on the remote
-        const want = this._desiredByMode && this._desiredByMode[prevMode];
+        const want = this._wantFor(prevMode);
         if (!want) return;
         for (let k of valueKeys) {
             const v = s[k];
             if (k === 'oledLight') k = 'backlight';
             if (want[k] !== undefined && String(want[k]) !== String(parseInt(v))) {
                 this.log.info(`Picture ${k} changed on the TV to ${v} (mode "${prevMode}") — kept as the wanted value`);
-                this._trail(`remote ${k}=${v} adopted for ${prevMode}`);
+                this._trail(`remote ${k}=${v} adopted`);
                 want[k] = String(parseInt(v));
             }
         }
@@ -1691,7 +1703,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
     /** True if a push reports a value different from what was commanded for this mode. */
     _pushDiffersFromWanted(mode, s) {
-        const want = this._desiredByMode && this._desiredByMode[mode];
+        const want = this._wantFor(mode);
         if (!want) return false;
         for (let [k, v] of Object.entries(s)) {
             if (k === 'pictureMode') continue;
@@ -1764,7 +1776,7 @@ class LgtvFullAdapter extends utils.Adapter {
 
     _reconcilePicture() {
         const mode = this._confirmed['picture.mode'];
-        const want = mode && this._desiredByMode && this._desiredByMode[mode];
+        const want = mode && this._wantFor(mode);
         if (!want) return;   // nothing commanded for this mode in this session
         const diff = {}, shown = {};
         for (const [k, v] of Object.entries(want)) {
