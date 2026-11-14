@@ -503,6 +503,7 @@ class LgtvFullAdapter extends utils.Adapter {
         this._recentValueCmds[k] = { val: String(n), ts: Date.now(), mode: forMode, prev: fresh ? rec.prev : want[k] };
         want[k] = String(n);
         (this._wanted = this._wanted || {})[k] = String(n);
+        this._wantedTs = Date.now();
         if (this._gaveUp) delete this._gaveUp[forMode];   // a new command deserves a fresh try
     }
 
@@ -518,9 +519,17 @@ class LgtvFullAdapter extends utils.Adapter {
      * in every mode. (1.2.72 tried this and leaked 100 into filmMaker because
      * a skipped "20" command was not remembered — it is since 1.2.76.)
      */
-    _wantFor(_mode) {
+    _wantFor(mode) {
         const w = this._wanted;
-        return w && Object.keys(w).length ? w : null;
+        if (!w || !Object.keys(w).length) return null;
+        // Only in a mode the automation takes responsibility for: one it
+        // commanded itself, or one it sent a value in. Loxone answers every
+        // mode it knows with a mode command (even when the TV got there on its
+        // own) and stays silent for the ones it does not manage — e.g. a mode
+        // picked on the remote. There the TV's own stored values must stay.
+        if (this._lastCmdMode === mode) return w;
+        if ((this._wantedTs || 0) >= (this._modeChangedAt || 0)) return w;
+        return null;
     }
 
     /** The commanded mode, while the TV has not confirmed it yet (bounded in time). */
@@ -784,6 +793,7 @@ class LgtvFullAdapter extends utils.Adapter {
             // for e.g. a light-dependent backlight must never be re-applied).
             this._desiredByMode = {};
             this._wanted = {};
+            this._lastCmdMode = null;
             this._recentValueCmds = {};
             this._gaveUp = {};
             this._reloadFixes = {};
@@ -1689,6 +1699,7 @@ class LgtvFullAdapter extends utils.Adapter {
                 this.log.info(`Picture ${k} changed on the TV to ${v} (mode "${prevMode}") — kept as the wanted value`);
                 this._trail(`remote ${k}=${v} adopted`);
                 want[k] = String(parseInt(v));
+                this._wantedTs = Date.now();
             }
         }
     }
@@ -1938,6 +1949,10 @@ class LgtvFullAdapter extends utils.Adapter {
             this.log.warn(`Unknown picture mode "${val}" — ignored`);
             return;
         }
+        // The automation names the mode it wants — remembered even when the
+        // command itself is skipped below because the TV is already there.
+        if (key === 'picture.mode') { this._lastCmdMode = val; this._trail(`cmd mode=${val}`); }
+        if (key === 'picture.modeNum' && PICTURE_MODE_KEYS[val - 1]) this._lastCmdMode = PICTURE_MODE_KEYS[val - 1];
         if (key === 'audio.soundMode' && !SOUND_MODES[val]) {
             this.log.warn(`Unknown sound mode "${val}" — ignored`);
             return;
@@ -2082,7 +2097,6 @@ class LgtvFullAdapter extends utils.Adapter {
             case 'picture.mode': {
                 if (this._modeFlapBlocked()) { this.setStateAsync(id, val, true); break; }
                 this._bindRecentValuesToMode(val);
-                this._trail(`cmd mode=${val}`);
                 this._setPictureSetting({ pictureMode: val }, (err) => {
                     if (err) this.log.warn(`picture mode write error: ${err.message}`);
                 });
